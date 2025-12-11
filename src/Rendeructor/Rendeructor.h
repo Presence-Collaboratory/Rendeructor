@@ -17,10 +17,19 @@ struct RENDER_API BackendConfig {
 
 class RENDER_API Texture {
 public:
-    void create(int width, int height, TextureFormat format);
+    Texture() = default;
+
+    void Create(int width, int height, TextureFormat format);
+
+    bool LoadFromDisk(const std::string& path);
+
+    void Copy(const Texture& source);
+
     void* GetHandle() const { return m_backendHandle; }
     int GetWidth() const { return m_width; }
     int GetHeight() const { return m_height; }
+    TextureFormat GetFormat() const { return m_format; }
+
 private:
     void* m_backendHandle = nullptr;
     int m_width = 0;
@@ -28,9 +37,10 @@ private:
     TextureFormat m_format = TextureFormat::RGBA8;
 };
 
+
 class RENDER_API Sampler {
 public:
-    void create(const std::string& filterName = "Linear");
+    void Create(const std::string& filterName = "Linear");
     void* GetHandle() const { return m_backendHandle; }
 private:
     void* m_backendHandle = nullptr;
@@ -54,6 +64,32 @@ private:
     std::map<std::string, const Sampler*> m_samplers;
 };
 
+struct Vertex {
+    Math::float3 Position;
+    Math::float2 UV;
+
+    Vertex() = default;
+    Vertex(float x, float y, float z, float u, float v)
+        : Position(x, y, z), UV(u, v) {}
+};
+
+class RENDER_API Mesh {
+public:
+    Mesh() = default;
+
+    void Create(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
+
+    void* GetVB() const { return m_vbHandle; }
+    void* GetIB() const { return m_ibHandle; }
+    int GetIndexCount() const { return m_indexCount; }
+
+private:
+    void* m_vbHandle = nullptr;
+    void* m_ibHandle = nullptr;
+    int m_indexCount = 0;
+};
+
+
 class RENDER_API Rendeructor {
 public:
     Rendeructor();
@@ -73,7 +109,14 @@ public:
     void SetConstant(const std::string& name, const Math::float4& value);
     void SetConstant(const std::string& name, const Math::float4x4& value);
 
-    void RenderViewportSurface(const Texture& target = Texture());
+    void RenderToTexture(const Texture& target = Texture());
+    void RenderPassToTexture(const Texture& target);
+
+    void RenderPassToScreen();
+
+    void Clear(float r, float g, float b, float a = 1.0f);
+
+    void DrawMesh(const Mesh& mesh);
 
     void Present();
 

@@ -28,6 +28,9 @@ bool BackendDX11::Initialize(const BackendConfig& config) {
     }
     m_hwnd = (HWND)config.WindowHandle;
 
+    m_screenWidth = config.Width;
+    m_screenHeight = config.Height;
+
     if (!InitD3D(config)) {
         LogDebug("[BackendDX11] Error: InitD3D failed.");
         return false;
@@ -116,9 +119,53 @@ bool BackendDX11::InitD3D(const BackendConfig& config) {
         return false;
     }
 
+    // --- Создаем Rasterizer State (Отключаем Culling для теста) ---
+    D3D11_RASTERIZER_DESC rd = {};
+    rd.FillMode = D3D11_FILL_SOLID;
+    rd.CullMode = D3D11_CULL_NONE; // Рисуем обе стороны граней
+    rd.FrontCounterClockwise = FALSE;
+    rd.DepthClipEnable = TRUE;
+
+    hr = m_device->CreateRasterizerState(&rd, m_rasterizerState.GetAddressOf());
+    if (FAILED(hr)) { LogDebug("Failed to create Rasterizer State"); return false; }
+
+    m_context->RSSetState(m_rasterizerState.Get());
+
+    // --- Создаем Depth Stencil State ---
+    D3D11_DEPTH_STENCIL_DESC dsd = {};
+    dsd.DepthEnable = TRUE;
+    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsd.DepthFunc = D3D11_COMPARISON_LESS; // Стандартная проверка глубины
+
+    hr = m_device->CreateDepthStencilState(&dsd, m_depthStencilState.GetAddressOf());
+    if (FAILED(hr)) { LogDebug("Failed to create Depth State"); return false; }
+
+    m_context->OMSetDepthStencilState(m_depthStencilState.Get(), 1);
+
+    // Создаем сам буфер глубины
+    CreateDepthResources(config.Width, config.Height);
+
     LogDebug("[BackendDX11] Initializing Viewport...");
     Resize(config.Width, config.Height);
     return true;
+}
+
+void BackendDX11::CreateDepthResources(int width, int height) {
+    m_depthStencilBuffer.Reset();
+    m_depthStencilView.Reset();
+
+    D3D11_TEXTURE2D_DESC descDepth = {};
+    descDepth.Width = width;
+    descDepth.Height = height;
+    descDepth.MipLevels = 1;
+    descDepth.ArraySize = 1;
+    descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 24 bit depth, 8 bit stencil
+    descDepth.SampleDesc.Count = 1;
+    descDepth.Usage = D3D11_USAGE_DEFAULT;
+    descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    if (FAILED(m_device->CreateTexture2D(&descDepth, nullptr, m_depthStencilBuffer.GetAddressOf()))) return;
+    if (FAILED(m_device->CreateDepthStencilView(m_depthStencilBuffer.Get(), nullptr, m_depthStencilView.GetAddressOf()))) return;
 }
 
 void BackendDX11::Shutdown() {
@@ -131,7 +178,12 @@ void BackendDX11::Shutdown() {
 }
 
 void BackendDX11::Resize(int width, int height) {
+    m_screenWidth = width;
+    m_screenHeight = height;
     if (!m_context) return;
+
+    CreateDepthResources(width, height); // Пересоздаем глубину
+
     D3D11_VIEWPORT vp = {};
     vp.Width = (float)width;
     vp.Height = (float)height;
@@ -146,7 +198,7 @@ void BackendDX11::EndFrame() {
     if (m_swapChain) m_swapChain->Present(1, 0);
 }
 
-void* BackendDX11::CreateTextureResource(int width, int height, int format) {
+void* BackendDX11::CreateTextureResource(int width, int height, int format, const void* initialData) {
     auto* wrapper = new DX11TextureWrapper();
     wrapper->Width = width;
     wrapper->Height = height;
@@ -160,24 +212,100 @@ void* BackendDX11::CreateTextureResource(int width, int height, int format) {
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
+    // Определяем формат и размер пикселя для загрузки данных
+    int bytesPerPixel = 4;
     switch ((TextureFormat)format) {
-    case TextureFormat::RGBA16F: desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; break;
-    case TextureFormat::R16F: desc.Format = DXGI_FORMAT_R16_FLOAT; break;
-    case TextureFormat::R32F: desc.Format = DXGI_FORMAT_R32_FLOAT; break;
-    default: desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; break;
+    case TextureFormat::RGBA16F:
+        desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        bytesPerPixel = 8;
+        break;
+    case TextureFormat::R16F:
+        desc.Format = DXGI_FORMAT_R16_FLOAT;
+        bytesPerPixel = 2;
+        break;
+    case TextureFormat::R32F:
+        desc.Format = DXGI_FORMAT_R32_FLOAT;
+        bytesPerPixel = 4;
+        break;
+    default:
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        bytesPerPixel = 4;
+        break;
     }
 
-    HRESULT hr = m_device->CreateTexture2D(&desc, nullptr, wrapper->Texture.GetAddressOf());
+    D3D11_SUBRESOURCE_DATA* pInitData = nullptr;
+    D3D11_SUBRESOURCE_DATA initData = {};
+
+    if (initialData) {
+        initData.pSysMem = initialData;
+        initData.SysMemPitch = width * bytesPerPixel; // Шаг строки
+        pInitData = &initData;
+    }
+
+    HRESULT hr = m_device->CreateTexture2D(&desc, pInitData, wrapper->Texture.GetAddressOf());
+
     if (FAILED(hr)) {
-        LogDebug("[BackendDX11] Failed to create texture. HRESULT: 0x%08X", (unsigned int)hr);
+        LogDebug("[BackendDX11] Failed create texture. Hr: 0x%X", hr);
         delete wrapper;
         return nullptr;
     }
 
     m_device->CreateShaderResourceView(wrapper->Texture.Get(), nullptr, wrapper->SRV.GetAddressOf());
     m_device->CreateRenderTargetView(wrapper->Texture.Get(), nullptr, wrapper->RTV.GetAddressOf());
+
     m_textures.push_back(wrapper);
     return wrapper;
+}
+
+void BackendDX11::CopyTexture(void* dstHandle, void* srcHandle) {
+    if (!dstHandle || !srcHandle) return;
+    auto* dst = (DX11TextureWrapper*)dstHandle;
+    auto* src = (DX11TextureWrapper*)srcHandle;
+
+    // Копирует все содержимое (размеры должны совпадать, иначе DX выдаст ошибку в debug layer)
+    m_context->CopyResource(dst->Texture.Get(), src->Texture.Get());
+}
+
+void BackendDX11::SetRenderTarget(void* textureHandle) {
+    ID3D11RenderTargetView* rtv = nullptr;
+    ID3D11DepthStencilView* dsv = nullptr; // <--- DSV
+    D3D11_VIEWPORT vp = {};
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+
+    if (textureHandle) {
+        auto* tex = (DX11TextureWrapper*)textureHandle;
+        rtv = tex->RTV.Get();
+        vp.Width = (float)tex->Width;
+        vp.Height = (float)tex->Height;
+        // Примечание: Для рендера в текстуру нам тоже нужен свой DepthBuffer,
+        // но пока для простоты будем использовать nullptr (без глубины для текстур)
+        // или нужно создавать Depth для каждой текстуры-таргета.
+        dsv = nullptr;
+    }
+    else {
+        rtv = m_backBufferRTV.Get();
+        dsv = m_depthStencilView.Get(); // <--- Подключаем буфер глубины экрана
+        vp.Width = (float)m_screenWidth;
+        vp.Height = (float)m_screenHeight;
+    }
+
+    dsv = (textureHandle == nullptr) ? m_depthStencilView.Get() : nullptr;
+
+    m_context->OMSetRenderTargets(1, &rtv, dsv);
+    m_context->RSSetViewports(1, &vp);
+}
+
+void BackendDX11::Clear(float r, float g, float b, float a) {
+    float color[4] = { r, g, b, a };
+
+    if (m_backBufferRTV) {
+        m_context->ClearRenderTargetView(m_backBufferRTV.Get(), color);
+    }
+
+    if (m_depthStencilView) {
+        m_context->ClearDepthStencilView(m_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    }
 }
 
 void* BackendDX11::CreateSamplerResource(const std::string& filterMode) {
@@ -289,8 +417,11 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
         sw.ReflectionVS = ReflectShader(vsBlob);
 
         D3D11_INPUT_ELEMENT_DESC layout[] = {
+            // Position (читаем 3 флоата = 12 байт, но в памяти C++ они занимают 16 байт)
             { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+
+            // TexCoord (смещение должно быть 16, так как Math::float3 занимает 16 байт)
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 }
         };
         m_device->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), sw.InputLayout.GetAddressOf());
         vsBlob->Release();
@@ -360,9 +491,10 @@ void BackendDX11::UpdateConstantRaw(const std::string& name, const void* data, s
     m_cpuConstantsStorage[name] = { buffer };
 }
 
-void BackendDX11::RenderViewportSurface(void* targetTextureHandle) {
+void BackendDX11::DrawFullScreenQuad() {
     if (!m_activeShader) return;
 
+    // 1. Обновляем константы (VS)
     if (m_cbVS && m_activeShader->ReflectionVS.BufferSize > 0) {
         D3D11_MAPPED_SUBRESOURCE map;
         if (SUCCEEDED(m_context->Map(m_cbVS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
@@ -378,6 +510,7 @@ void BackendDX11::RenderViewportSurface(void* targetTextureHandle) {
         m_context->VSSetConstantBuffers(0, 1, m_cbVS.GetAddressOf());
     }
 
+    // 2. Обновляем константы (PS)
     if (m_cbPS && m_activeShader->ReflectionPS.BufferSize > 0) {
         D3D11_MAPPED_SUBRESOURCE map;
         if (SUCCEEDED(m_context->Map(m_cbPS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
@@ -393,22 +526,129 @@ void BackendDX11::RenderViewportSurface(void* targetTextureHandle) {
         m_context->PSSetConstantBuffers(0, 1, m_cbPS.GetAddressOf());
     }
 
-    ID3D11RenderTargetView* rtv = nullptr;
-    if (targetTextureHandle) {
-        rtv = ((DX11TextureWrapper*)targetTextureHandle)->RTV.Get();
-    }
-    else {
-        rtv = m_backBufferRTV.Get();
-    }
-
-    ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
-    m_context->PSSetShaderResources(0, 8, nullSRVs);
-    m_context->OMSetRenderTargets(1, &rtv, nullptr);
-
+    // 3. Рисуем квад
     UINT stride = sizeof(SimpleVertex);
     UINT offset = 0;
     m_context->IASetVertexBuffers(0, 1, m_quadVertexBuffer.GetAddressOf(), &stride, &offset);
     m_context->IASetIndexBuffer(m_quadIndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
     m_context->DrawIndexed(6, 0, 0);
+
+    // 4. Очистка SRV (чтобы можно было писать в эти текстуры на след. кадре)
+    ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
+    m_context->PSSetShaderResources(0, 8, nullSRVs);
+}
+
+void* BackendDX11::CreateBufferInternal(const void* data, size_t size, UINT bindFlags) {
+    auto* wrapper = new DX11BufferWrapper();
+    wrapper->Size = (UINT)size;
+
+    D3D11_BUFFER_DESC bd = {};
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = (UINT)size;
+    bd.BindFlags = bindFlags;
+    bd.CPUAccessFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA initData = {};
+    initData.pSysMem = data;
+
+    HRESULT hr = m_device->CreateBuffer(&bd, &initData, wrapper->Buffer.GetAddressOf());
+    if (FAILED(hr)) {
+        LogDebug("[BackendDX11] Failed to create buffer. Hr: 0x%X", hr);
+        delete wrapper;
+        return nullptr;
+    }
+    return wrapper;
+}
+
+void* BackendDX11::CreateVertexBuffer(const void* data, size_t size, int stride) {
+    auto* w = (DX11BufferWrapper*)CreateBufferInternal(data, size, D3D11_BIND_VERTEX_BUFFER);
+
+    if (w) {
+        w->Stride = (UINT)stride;
+    }
+
+    return w;
+}
+
+void* BackendDX11::CreateIndexBuffer(const void* data, size_t size) {
+    return CreateBufferInternal(data, size, D3D11_BIND_INDEX_BUFFER);
+}
+
+void BackendDX11::DrawMesh(void* vbHandle, void* ibHandle, int indexCount) {
+    // Базовые проверки
+    if (!m_activeShader || !vbHandle || !ibHandle) return;
+
+    // Приведение типов к нашим внутренним оберткам
+    auto* vb = (DX11BufferWrapper*)vbHandle;
+    auto* ib = (DX11BufferWrapper*)ibHandle;
+
+    // -----------------------------------------------------------
+    // 1. Обновление констант для VERTEX SHADER
+    // -----------------------------------------------------------
+    if (m_cbVS && m_activeShader->ReflectionVS.BufferSize > 0) {
+        D3D11_MAPPED_SUBRESOURCE map;
+        // Блокируем буфер для записи (WRITE_DISCARD говорит драйверу, что старые данные не нужны)
+        if (SUCCEEDED(m_context->Map(m_cbVS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+            // Проходимся по всем переменным, которые ожидает шейдер
+            for (const auto& var : m_activeShader->ReflectionVS.Variables) {
+                // Если мы установили такое значение через SetConstant (оно есть в CPU памяти)
+                if (m_cpuConstantsStorage.count(var.Name)) {
+                    const auto& stored = m_cpuConstantsStorage[var.Name];
+                    // Копируем данные в GPU буфер по правильному смещению
+                    size_t copySize = std::min((size_t)var.Size, stored.Data.size());
+                    memcpy((uint8_t*)map.pData + var.Offset, stored.Data.data(), copySize);
+                }
+            }
+            m_context->Unmap(m_cbVS.Get(), 0);
+        }
+        // Устанавливаем обновленный буфер в слот констант вершинного шейдера
+        m_context->VSSetConstantBuffers(0, 1, m_cbVS.GetAddressOf());
+    }
+
+    // -----------------------------------------------------------
+    // 2. Обновление констант для PIXEL SHADER
+    // -----------------------------------------------------------
+    if (m_cbPS && m_activeShader->ReflectionPS.BufferSize > 0) {
+        D3D11_MAPPED_SUBRESOURCE map;
+        if (SUCCEEDED(m_context->Map(m_cbPS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+            for (const auto& var : m_activeShader->ReflectionPS.Variables) {
+                if (m_cpuConstantsStorage.count(var.Name)) {
+                    const auto& stored = m_cpuConstantsStorage[var.Name];
+                    size_t copySize = std::min((size_t)var.Size, stored.Data.size());
+                    memcpy((uint8_t*)map.pData + var.Offset, stored.Data.data(), copySize);
+                }
+            }
+            m_context->Unmap(m_cbPS.Get(), 0);
+        }
+        m_context->PSSetConstantBuffers(0, 1, m_cbPS.GetAddressOf());
+    }
+
+    // -----------------------------------------------------------
+    // 3. Установка геометрии (Input Assembler)
+    // -----------------------------------------------------------
+    UINT stride = vb->Stride; // Размер одной вершины (шаг)
+    UINT offset = 0;
+
+    // Устанавливаем Вершинный Буфер
+    m_context->IASetVertexBuffers(0, 1, vb->Buffer.GetAddressOf(), &stride, &offset);
+
+    // Устанавливаем Индексный Буфер (Формат R32_UINT означает unsigned int)
+    m_context->IASetIndexBuffer(ib->Buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+
+    // Указываем тип примитивов (список треугольников)
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // -----------------------------------------------------------
+    // 4. Отрисовка
+    // -----------------------------------------------------------
+    m_context->DrawIndexed(indexCount, 0, 0);
+
+    // -----------------------------------------------------------
+    // 5. Очистка ресурсов
+    // -----------------------------------------------------------
+    // Важно сбросить SRV, чтобы избежать конфликтов чтения/записи в следующих проходах
+    ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
+    m_context->PSSetShaderResources(0, 8, nullSRVs);
 }

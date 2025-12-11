@@ -1,19 +1,46 @@
 #include "pch.h"
 #include "Rendeructor.h"
 #include "BackendDX11.h"
+#include <stb_image/stb_image.h>
 
 Rendeructor* Rendeructor::s_instance = nullptr;
 
-void Texture::create(int width, int height, TextureFormat format) {
+void Texture::Create(int width, int height, TextureFormat format) {
     m_width = width;
     m_height = height;
     m_format = format;
     if (Rendeructor::GetCurrent() && Rendeructor::GetCurrent()->GetBackendAPI()) {
-        m_backendHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateTextureResource(width, height, (int)format);
+        m_backendHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateTextureResource(width, height, (int)format, nullptr);
     }
 }
 
-void Sampler::create(const std::string& name) {
+bool Texture::LoadFromDisk(const std::string& path) {
+    int w, h, channels;
+    unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 4);
+
+    if (!data) {
+        return false;
+    }
+
+    m_width = w;
+    m_height = h;
+    m_format = TextureFormat::RGBA8;
+
+    if (Rendeructor::GetCurrent() && Rendeructor::GetCurrent()->GetBackendAPI()) {
+        m_backendHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateTextureResource(w, h, (int)m_format, data);
+    }
+
+    stbi_image_free(data);
+    return (m_backendHandle != nullptr);
+}
+
+void Texture::Copy(const Texture& source) {
+    if (Rendeructor::GetCurrent() && Rendeructor::GetCurrent()->GetBackendAPI()) {
+        Rendeructor::GetCurrent()->GetBackendAPI()->CopyTexture(m_backendHandle, source.GetHandle());
+    }
+}
+
+void Sampler::Create(const std::string& name) {
     if (Rendeructor::GetCurrent()) {
         m_backendHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateSamplerResource(name);
     }
@@ -25,6 +52,24 @@ void ShaderPass::AddTexture(const std::string& name, const Texture& texture) {
 
 void ShaderPass::AddSampler(const std::string& name, const Sampler& sampler) {
     m_samplers[name] = &sampler;
+}
+
+void Mesh::Create(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices) {
+    if (Rendeructor::GetCurrent() && Rendeructor::GetCurrent()->GetBackendAPI()) {
+
+        m_vbHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateVertexBuffer(
+            vertices.data(),
+            vertices.size() * sizeof(Vertex),
+            sizeof(Vertex)
+        );
+
+        m_ibHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateIndexBuffer(
+            indices.data(),
+            indices.size() * sizeof(unsigned int)
+        );
+
+        m_indexCount = (int)indices.size();
+    }
 }
 
 Rendeructor::Rendeructor() {
@@ -95,8 +140,34 @@ void Rendeructor::SetConstant(const std::string& name, const Math::float4x4& val
     if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(Math::float4x4));
 }
 
-void Rendeructor::RenderViewportSurface(const Texture& target) {
-    if (m_backend) m_backend->RenderViewportSurface(target.GetHandle());
+void Rendeructor::RenderToTexture(const Texture& target) {
+    if (m_backend) {
+        m_backend->SetRenderTarget(target.GetHandle());
+    }
+}
+
+void Rendeructor::RenderPassToTexture(const Texture& target) {
+    if (m_backend) {
+        m_backend->SetRenderTarget(target.GetHandle());
+        m_backend->DrawFullScreenQuad();
+    }
+}
+
+void Rendeructor::RenderPassToScreen() {
+    if (m_backend) {
+        m_backend->SetRenderTarget(nullptr);
+        m_backend->DrawFullScreenQuad();
+    }
+}
+
+void Rendeructor::Clear(float r, float g, float b, float a) {
+    if (m_backend) m_backend->Clear(r, g, b, a);
+}
+
+void Rendeructor::DrawMesh(const Mesh& mesh) {
+    if (m_backend) {
+        m_backend->DrawMesh(mesh.GetVB(), mesh.GetIB(), mesh.GetIndexCount());
+    }
 }
 
 void Rendeructor::Present() {

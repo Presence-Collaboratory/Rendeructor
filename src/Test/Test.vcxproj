@@ -145,7 +145,8 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
+copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -167,7 +168,8 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
+copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -185,7 +187,8 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
+copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -207,7 +210,8 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
+copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

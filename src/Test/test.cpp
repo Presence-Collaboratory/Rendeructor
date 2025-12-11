@@ -11,126 +11,165 @@
 Rendeructor* g_RenderBackend = nullptr;
 bool g_IsRunning = true;
 
-// Простейшая процедура обработки сообщений окна
+// Оконная процедура
 LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam) {
-    switch (umessage) {
-    case WM_CLOSE:
-    case WM_DESTROY:
+    if (umessage == WM_CLOSE || umessage == WM_DESTROY) {
         g_IsRunning = false;
         PostQuitMessage(0);
-        return 0;
-    case WM_SIZE:
-        // Если бекенд инициализирован, обновляем размер
-        if (g_RenderBackend && g_RenderBackend->GetBackendAPI()) {
-            RECT rect;
-            GetClientRect(hwnd, &rect);
-            g_RenderBackend->GetBackendAPI()->Resize(rect.right - rect.left, rect.bottom - rect.top);
-        }
         return 0;
     }
     return DefWindowProc(hwnd, umessage, wparam, lparam);
 }
 
-int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-    _In_opt_ HINSTANCE hPrevInstance,
-    _In_ LPWSTR    lpCmdLine,
-    _In_ int       nCmdShow)
+int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
-    // 1. Создаем окно Windows (Client Side)
+    // --- 1. Инициализация окна ---
     const int W = 1280;
     const int H = 720;
-    const wchar_t* className = L"RendeructorTestClass";
-
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, className, NULL };
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"RendeructorTest", NULL };
     RegisterClassEx(&wc);
-
-    HWND hwnd = CreateWindow(className, L"Rendeructor Test App",
-        WS_OVERLAPPEDWINDOW, 100, 100, W, H, NULL, NULL, wc.hInstance, NULL);
-
-    if (!hwnd) return 1;
+    HWND hwnd = CreateWindow(L"RendeructorTest", L"Rendeructor 3D Cube", WS_OVERLAPPEDWINDOW, 100, 100, W, H, NULL, NULL, wc.hInstance, NULL);
     ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
 
-    // 2. Инициализация Rendeructor
+    // --- 2. Инициализация Rendeructor ---
     g_RenderBackend = new Rendeructor();
-
     BackendConfig config;
     config.Width = W;
     config.Height = H;
-    config.ScreenMode = ScreenMode::Windowed;
+    config.WindowHandle = hwnd;
     config.API = RenderAPI::DirectX11;
-    config.WindowHandle = hwnd; // Передаем дескриптор окна
 
     if (!g_RenderBackend->Create(config)) {
-        MessageBox(NULL, L"Failed to initialize Rendeructor Backend!", L"Error", MB_ICONERROR);
+        MessageBox(NULL, L"Failed to init backend", L"Error", MB_OK);
         return -1;
     }
 
-    // 3. Создаем ресурсы
-    // Создадим текстуру, в которую теоретически можно рендерить (для теста API)
-    Texture offscreenTex;
-    offscreenTex.create(W, H, TextureFormat::RGBA16F);
+    // --- 3. Создание Ресурсов (Текстура и Семплер) ---
+    Texture cubeTexture;
+    // Пытаемся загрузить картинку, если нет - создаем фиолетовую 1x1
+    if (!cubeTexture.LoadFromDisk("test.png")) {
+        cubeTexture.Create(1, 1, TextureFormat::RGBA8);
+    }
 
-    // Семплер
-    Sampler linearSampler;
-    linearSampler.create("Linear");
+    Sampler sampler;
+    sampler.Create("Linear");
 
-    // 4. Настраиваем шейдерный проход
-    ShaderPass simplePass;
-    simplePass.VertexShaderPath = "Shader.hlsl";
-    simplePass.VertexShaderEntryPoint = "VSMain";
-    simplePass.PixelShaderPath = "Shader.hlsl";
-    simplePass.PixelShaderEntryPoint = "PSMain";
+    // --- 4. Создание Геометрии (Меш Куба) вручную ---
+    // Нам нужно 24 вершины (4 на каждую грань), чтобы текстуры накладывались правильно
+    std::vector<Vertex> vertices = {
+        // Front Face (Z = -1)
+        { -1.0f, -1.0f, -1.0f,  0.0f, 1.0f }, // Bottom-Left
+        { -1.0f,  1.0f, -1.0f,  0.0f, 0.0f }, // Top-Left
+        {  1.0f,  1.0f, -1.0f,  1.0f, 0.0f }, // Top-Right
+        {  1.0f, -1.0f, -1.0f,  1.0f, 1.0f }, // Bottom-Right
 
-    // Привязываем ресурсы (даже если шейдер их пока не использует, тестируем API)
-    simplePass.AddTexture("tex_Input", offscreenTex);
-    simplePass.AddSampler("smp_Linear", linearSampler);
+        // Back Face (Z = +1)
+        {  1.0f, -1.0f,  1.0f,  0.0f, 1.0f }, // Bottom-Left
+        {  1.0f,  1.0f,  1.0f,  0.0f, 0.0f }, // Top-Left
+        { -1.0f,  1.0f,  1.0f,  1.0f, 0.0f }, // Top-Right
+        { -1.0f, -1.0f,  1.0f,  1.0f, 1.0f }, // Bottom-Right
 
-    g_RenderBackend->CompilePass(simplePass);
+        // Top Face (Y = +1)
+        { -1.0f,  1.0f, -1.0f,  0.0f, 1.0f },
+        { -1.0f,  1.0f,  1.0f,  0.0f, 0.0f },
+        {  1.0f,  1.0f,  1.0f,  1.0f, 0.0f },
+        {  1.0f,  1.0f, -1.0f,  1.0f, 1.0f },
 
-    // 5. Главный цикл
+        // Bottom Face (Y = -1)
+        { -1.0f, -1.0f,  1.0f,  0.0f, 1.0f },
+        { -1.0f, -1.0f, -1.0f,  0.0f, 0.0f },
+        {  1.0f, -1.0f, -1.0f,  1.0f, 0.0f },
+        {  1.0f, -1.0f,  1.0f,  1.0f, 1.0f },
+
+        // Left Face (X = -1)
+        { -1.0f, -1.0f,  1.0f,  0.0f, 1.0f },
+        { -1.0f,  1.0f,  1.0f,  0.0f, 0.0f },
+        { -1.0f,  1.0f, -1.0f,  1.0f, 0.0f },
+        { -1.0f, -1.0f, -1.0f,  1.0f, 1.0f },
+
+        // Right Face (X = +1)
+        {  1.0f, -1.0f, -1.0f,  0.0f, 1.0f },
+        {  1.0f,  1.0f, -1.0f,  0.0f, 0.0f },
+        {  1.0f,  1.0f,  1.0f,  1.0f, 0.0f },
+        {  1.0f, -1.0f,  1.0f,  1.0f, 1.0f },
+    };
+
+    std::vector<unsigned int> indices;
+    // Генерируем 2 треугольника на каждую из 6 граней
+    for (int i = 0; i < 6; ++i) {
+        unsigned int offset = i * 4;
+        indices.push_back(offset + 0);
+        indices.push_back(offset + 1);
+        indices.push_back(offset + 2);
+
+        indices.push_back(offset + 2);
+        indices.push_back(offset + 3);
+        indices.push_back(offset + 0);
+    }
+
+    // Создаем объект Mesh и загружаем данные в GPU
+    Mesh cubeMesh;
+    cubeMesh.Create(vertices, indices);
+
+    // --- 5. Настройка Шейдера ---
+    ShaderPass cubePass;
+    cubePass.VertexShaderPath = "Shader.hlsl";
+    cubePass.VertexShaderEntryPoint = "VSMain";
+    cubePass.PixelShaderPath = "Shader.hlsl";
+    cubePass.PixelShaderEntryPoint = "PSMain";
+
+    cubePass.AddTexture("tex_Diffuse", cubeTexture);
+    cubePass.AddSampler("smp_Main", sampler);
+
+    // Предварительная компиляция
+    g_RenderBackend->CompilePass(cubePass);
+
+    // --- 6. Настройка Математики ---
     auto startTime = std::chrono::high_resolution_clock::now();
 
+    Math::float4x4 projection = Math::float4x4::perspective_lh_zo(
+        45.0f * Math::Constants::DEG_TO_RAD,
+        (float)W / (float)H,
+        0.1f,
+        100.0f
+    );
+
+    Math::float3 eye(0.0f, 2.0f, -5.0f);
+    Math::float3 target(0.0f, 0.0f, 0.0f);
+    Math::float3 up(0.0f, 1.0f, 0.0f);
+    Math::float4x4 view = Math::float4x4::look_at_lh(eye, target, up);
+
+    // --- 7. Главный Цикл ---
     MSG msg = { 0 };
     while (g_IsRunning) {
         if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
-            if (msg.message == WM_QUIT) g_IsRunning = false;
         }
         else {
-            // --- Рендеринг ---
-
-            // Считаем время
             auto currentTime = std::chrono::high_resolution_clock::now();
-            float timeSeconds = std::chrono::duration<float>(currentTime - startTime).count();
+            float time = std::chrono::duration<float>(currentTime - startTime).count();
 
-            // Подготавливаем проход
-            g_RenderBackend->SetShaderPass(simplePass);
+            // 1. Сначала ставим таргет на экран
+            g_RenderBackend->RenderPassToScreen();
 
-            // Устанавливаем константы (Uniforms)
-            // Имена должны совпадать с переменными в cbuffer шейдера
-            g_RenderBackend->SetConstant("u_Time", timeSeconds);
+            // 2. ЧИСТИМ ЭКРАН (Цвет серый, чтобы видеть черный куб, если текстура не загрузится)
+            g_RenderBackend->Clear(0.2f, 0.2f, 0.2f, 1.0f);
 
-            // Анимация цвета
-            Math::float4 colorVal;
-            colorVal.x = (sin(timeSeconds) * 0.5f) + 0.5f;
-            colorVal.y = (cos(timeSeconds * 1.3f) * 0.5f) + 0.5f;
-            colorVal.z = 0.5f;
-            colorVal.w = 1.0f;
-            g_RenderBackend->SetConstant("u_Color", colorVal);
+            // 3. Математика (Row-Major: Model * View * Projection)
+            Math::float4x4 model = Math::float4x4::rotation_y(time) * Math::float4x4::rotation_x(time * 0.5f);
+            Math::float4x4 mvp = model * view * projection; // Порядок верный для нашей C++ библиотеки
 
-            // Вызов отрисовки (target = default/screen)
-            g_RenderBackend->RenderViewportSurface();
+            // 4. Отрисовка
+            g_RenderBackend->SetShaderPass(cubePass);
+            g_RenderBackend->SetConstant("u_MVP", mvp);
+            g_RenderBackend->DrawMesh(cubeMesh);
 
             g_RenderBackend->Present();
         }
     }
 
-    // 6. Очистка
     g_RenderBackend->Destroy();
     delete g_RenderBackend;
-    UnregisterClass(className, wc.hInstance);
-
     return 0;
 }
