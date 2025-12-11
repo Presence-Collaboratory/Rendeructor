@@ -82,6 +82,8 @@ struct Vertex {
     Vertex() = default;
     Vertex(float x, float y, float z, float u, float v)
         : Position(x, y, z), UV(u, v) {}
+    Vertex(const Math::float3& pos, const Math::float2& uv)
+        : Position(pos.xyz()), UV(uv) {}
 };
 
 class RENDER_API Mesh {
@@ -120,7 +122,7 @@ public:
     void SetConstant(const std::string& name, const Math::float4& value);
     void SetConstant(const std::string& name, const Math::float4x4& value);
 
-    void RenderToTexture(const Texture& target = Texture());
+    void SetRenderTarget(const Texture& target = Texture());
     void RenderPassToTexture(const Texture& target);
 
     void RenderPassToScreen();

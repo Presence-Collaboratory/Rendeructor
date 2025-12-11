@@ -432,7 +432,6 @@ bool BackendDX11::CompileShader(const std::string& path, const std::string& entr
 
 DX11ReflectionData BackendDX11::ReflectShader(ID3DBlob* blob) {
     DX11ReflectionData data;
-    data.BufferSize = 0;
 
     ComPtr<ID3D11ShaderReflection> reflector;
     if (FAILED(D3DReflect(blob->GetBufferPointer(), blob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)reflector.GetAddressOf()))) {
@@ -442,13 +441,44 @@ DX11ReflectionData BackendDX11::ReflectShader(ID3DBlob* blob) {
     D3D11_SHADER_DESC shaderDesc;
     reflector->GetDesc(&shaderDesc);
 
+    // 1. Сначала собираем информацию о слотах (Bind Points)
+    std::map<std::string, UINT> cbSlots;
+
+    for (UINT i = 0; i < shaderDesc.BoundResources; ++i) {
+        D3D11_SHADER_INPUT_BIND_DESC bindDesc;
+        reflector->GetResourceBindingDesc(i, &bindDesc);
+        std::string name = bindDesc.Name;
+
+        if (bindDesc.Type == D3D_SIT_CBUFFER) {
+            cbSlots[name] = bindDesc.BindPoint;
+        }
+        else if (bindDesc.Type == D3D_SIT_TEXTURE) {
+            data.TextureSlots[name] = bindDesc.BindPoint;
+        }
+        else if (bindDesc.Type == D3D_SIT_SAMPLER) {
+            data.SamplerSlots[name] = bindDesc.BindPoint;
+        }
+    }
+
+    // 2. Теперь читаем содержимое буферов и создаем наши структуры
     for (UINT i = 0; i < shaderDesc.ConstantBuffers; ++i) {
         ID3D11ShaderReflectionConstantBuffer* cb = reflector->GetConstantBufferByIndex(i);
         D3D11_SHADER_BUFFER_DESC bufferDesc;
         cb->GetDesc(&bufferDesc);
 
-        if (data.BufferSize == 0) data.BufferSize = bufferDesc.Size;
+        ReflectedConstantBuffer myCB;
+        myCB.Name = bufferDesc.Name;
+        myCB.Size = bufferDesc.Size;
 
+        // Находим слот, который мы сохранили на шаге 1
+        if (cbSlots.find(myCB.Name) != cbSlots.end()) {
+            myCB.Slot = cbSlots[myCB.Name];
+        }
+        else {
+            myCB.Slot = i; // Fallback, если что-то пошло не так
+        }
+
+        // Читаем переменные внутри этого буфера
         for (UINT j = 0; j < bufferDesc.Variables; ++j) {
             ID3D11ShaderReflectionVariable* var = cb->GetVariableByIndex(j);
             D3D11_SHADER_VARIABLE_DESC varDesc;
@@ -458,9 +488,12 @@ DX11ReflectionData BackendDX11::ReflectShader(ID3DBlob* blob) {
             v.Name = varDesc.Name;
             v.Offset = varDesc.StartOffset;
             v.Size = varDesc.Size;
-            data.Variables.push_back(v);
+            myCB.Variables.push_back(v);
         }
+
+        data.Buffers.push_back(myCB);
     }
+
     return data;
 }
 
@@ -477,6 +510,23 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
     if (CompileShader(pass.VertexShaderPath, pass.VertexShaderEntryPoint, "vs_5_0", &vsBlob)) {
         m_device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, sw.VertexShader.GetAddressOf());
         sw.ReflectionVS = ReflectShader(vsBlob);
+
+        for (auto& cb : sw.ReflectionVS.Buffers) {
+            D3D11_BUFFER_DESC bd = {};
+
+            // Округляем размер до кратного 16
+            bd.ByteWidth = (cb.Size + 15) / 16 * 16;
+
+            bd.Usage = D3D11_USAGE_DYNAMIC;
+            bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+            bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+            // Если CreateBuffer вернет ошибку, хоть увидим в отладчике
+            HRESULT hr = m_device->CreateBuffer(&bd, nullptr, cb.HardwareBuffer.GetAddressOf());
+            if (FAILED(hr)) {
+                LogDebug("Failed to create Constant Buffer!");
+            }
+        }
 
         D3D11_INPUT_ELEMENT_DESC layout[] = {
             // Position (читаем 3 флоата = 12 байт, но в памяти C++ они занимают 16 байт)
@@ -505,63 +555,82 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
 }
 
 void BackendDX11::SetShaderPass(const ShaderPass& pass) {
+    // 1. Генерируем ключ для поиска в кэше
     std::string key = pass.VertexShaderPath + ":" + pass.VertexShaderEntryPoint + "|" +
         pass.PixelShaderPath + ":" + pass.PixelShaderEntryPoint;
+
+    // Если шейдер не скомпилирован или не найден — выходим
     if (m_shaderCache.find(key) == m_shaderCache.end()) return;
 
+    // Устанавливаем активный шейдер
     m_activeShader = &m_shaderCache[key];
 
+    // 2. Устанавливаем пайплайн (InputLayout, VS, PS)
     m_context->IASetInputLayout(m_activeShader->InputLayout.Get());
     m_context->VSSetShader(m_activeShader->VertexShader.Get(), nullptr, 0);
     m_context->PSSetShader(m_activeShader->PixelShader.Get(), nullptr, 0);
 
-    int slot = 0;
-
-    // Для 2D текстур - используем старый синтаксис
+    // 3. Привязка 2D Текстур по имени (используя данные рефлексии)
     for (const auto& texPair : pass.GetTextures()) {
         const std::string& name = texPair.first;
         const Texture* texturePtr = texPair.second;
+
+        // Получаем внутренний хендл
         auto* tex = (DX11TextureWrapper*)texturePtr->GetHandle();
-        if (tex) m_context->PSSetShaderResources(slot++, 1, tex->SRV.GetAddressOf());
+
+        if (tex) {
+            // Если текстура используется в Pixel Shader
+            if (m_activeShader->ReflectionPS.TextureSlots.count(name)) {
+                UINT slot = m_activeShader->ReflectionPS.TextureSlots[name];
+                m_context->PSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
+            }
+            // Если текстура используется в Vertex Shader
+            if (m_activeShader->ReflectionVS.TextureSlots.count(name)) {
+                UINT slot = m_activeShader->ReflectionVS.TextureSlots[name];
+                m_context->VSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
+            }
+        }
     }
 
-    // Для 3D текстур - используем старый синтаксис
+    // 4. Привязка 3D Текстур по имени
     for (const auto& tex3DPair : pass.GetTextures3D()) {
         const std::string& name = tex3DPair.first;
         const Texture3D* texturePtr = tex3DPair.second;
         auto* tex = (DX11TextureWrapper*)texturePtr->GetHandle();
+
         if (tex && tex->SRV) {
-            m_context->PSSetShaderResources(slot++, 1, tex->SRV.GetAddressOf());
+            // Проверка для Pixel Shader (PS)
+            if (m_activeShader->ReflectionPS.TextureSlots.count(name)) {
+                UINT slot = m_activeShader->ReflectionPS.TextureSlots[name];
+                m_context->PSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
+            }
+
+            // Проверка для Vertex Shader (VS)
+            if (m_activeShader->ReflectionVS.TextureSlots.count(name)) {
+                UINT slot = m_activeShader->ReflectionVS.TextureSlots[name];
+                m_context->VSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
+            }
         }
     }
 
-    slot = 0;
-    // Для семплеров - используем старый синтаксис
+    // 5. Привязка Семплеров по имени
     for (const auto& sampPair : pass.GetSamplers()) {
         const std::string& name = sampPair.first;
         const Sampler* samplerPtr = sampPair.second;
         auto* smp = (DX11SamplerWrapper*)samplerPtr->GetHandle();
-        if (smp) m_context->PSSetSamplers(slot++, 1, smp->State.GetAddressOf());
-    }
 
-    if (m_activeShader->ReflectionVS.BufferSize > m_cbVSSize) {
-        m_cbVSSize = m_activeShader->ReflectionVS.BufferSize;
-        D3D11_BUFFER_DESC bd = {};
-        bd.ByteWidth = m_cbVSSize;
-        bd.Usage = D3D11_USAGE_DYNAMIC;
-        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-        m_device->CreateBuffer(&bd, nullptr, m_cbVS.ReleaseAndGetAddressOf());
-    }
-
-    if (m_activeShader->ReflectionPS.BufferSize > m_cbPSSize) {
-        m_cbPSSize = m_activeShader->ReflectionPS.BufferSize;
-        D3D11_BUFFER_DESC bd = {};
-        bd.ByteWidth = m_cbPSSize;
-        bd.Usage = D3D11_USAGE_DYNAMIC;
-        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-        m_device->CreateBuffer(&bd, nullptr, m_cbPS.ReleaseAndGetAddressOf());
+        if (smp) {
+            // Pixel Shader
+            if (m_activeShader->ReflectionPS.SamplerSlots.count(name)) {
+                UINT slot = m_activeShader->ReflectionPS.SamplerSlots[name];
+                m_context->PSSetSamplers(slot, 1, smp->State.GetAddressOf());
+            }
+            // Vertex Shader
+            if (m_activeShader->ReflectionVS.SamplerSlots.count(name)) {
+                UINT slot = m_activeShader->ReflectionVS.SamplerSlots[name];
+                m_context->VSSetSamplers(slot, 1, smp->State.GetAddressOf());
+            }
+        }
     }
 }
 
@@ -571,42 +640,45 @@ void BackendDX11::UpdateConstantRaw(const std::string& name, const void* data, s
     m_cpuConstantsStorage[name] = { buffer };
 }
 
+void BackendDX11::UploadConstants(const DX11ReflectionData& reflectionData, bool isVertexShader) {
+    // Проходим по всем буферам шейдера
+    for (const auto& cb : reflectionData.Buffers) {
+        if (!cb.HardwareBuffer) continue;
+
+        // Мапим буфер для записи
+        D3D11_MAPPED_SUBRESOURCE map;
+        if (SUCCEEDED(m_context->Map(cb.HardwareBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+
+            // Проходим по переменным внутри буфера
+            for (const auto& var : cb.Variables) {
+                // Ищем значение в хранилище, которое пришло от пользователя (SetConstant)
+                if (m_cpuConstantsStorage.count(var.Name)) {
+                    const auto& stored = m_cpuConstantsStorage[var.Name];
+
+                    // Копируем данные в правильное место (Offset) внутри буфера
+                    size_t copySize = std::min((size_t)var.Size, stored.Data.size());
+                    memcpy((uint8_t*)map.pData + var.Offset, stored.Data.data(), copySize);
+                }
+            }
+            m_context->Unmap(cb.HardwareBuffer.Get(), 0);
+        }
+
+        // Привязываем буфер к пайплайну в нужный слот
+        if (isVertexShader) {
+            m_context->VSSetConstantBuffers(cb.Slot, 1, cb.HardwareBuffer.GetAddressOf());
+        }
+        else {
+            m_context->PSSetConstantBuffers(cb.Slot, 1, cb.HardwareBuffer.GetAddressOf());
+        }
+    }
+}
+
 void BackendDX11::DrawFullScreenQuad() {
     if (!m_activeShader) return;
 
-    // 1. Обновляем константы (VS)
-    if (m_cbVS && m_activeShader->ReflectionVS.BufferSize > 0) {
-        D3D11_MAPPED_SUBRESOURCE map;
-        if (SUCCEEDED(m_context->Map(m_cbVS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
-            for (const auto& var : m_activeShader->ReflectionVS.Variables) {
-                if (m_cpuConstantsStorage.count(var.Name)) {
-                    const auto& stored = m_cpuConstantsStorage[var.Name];
-                    size_t copySize = std::min((size_t)var.Size, stored.Data.size());
-                    memcpy((uint8_t*)map.pData + var.Offset, stored.Data.data(), copySize);
-                }
-            }
-            m_context->Unmap(m_cbVS.Get(), 0);
-        }
-        m_context->VSSetConstantBuffers(0, 1, m_cbVS.GetAddressOf());
-    }
+    UploadConstants(m_activeShader->ReflectionVS, true);
+    UploadConstants(m_activeShader->ReflectionPS, false);
 
-    // 2. Обновляем константы (PS)
-    if (m_cbPS && m_activeShader->ReflectionPS.BufferSize > 0) {
-        D3D11_MAPPED_SUBRESOURCE map;
-        if (SUCCEEDED(m_context->Map(m_cbPS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
-            for (const auto& var : m_activeShader->ReflectionPS.Variables) {
-                if (m_cpuConstantsStorage.count(var.Name)) {
-                    const auto& stored = m_cpuConstantsStorage[var.Name];
-                    size_t copySize = std::min((size_t)var.Size, stored.Data.size());
-                    memcpy((uint8_t*)map.pData + var.Offset, stored.Data.data(), copySize);
-                }
-            }
-            m_context->Unmap(m_cbPS.Get(), 0);
-        }
-        m_context->PSSetConstantBuffers(0, 1, m_cbPS.GetAddressOf());
-    }
-
-    // 3. Рисуем квад
     UINT stride = sizeof(SimpleVertex);
     UINT offset = 0;
     m_context->IASetVertexBuffers(0, 1, m_quadVertexBuffer.GetAddressOf(), &stride, &offset);
@@ -615,7 +687,7 @@ void BackendDX11::DrawFullScreenQuad() {
 
     m_context->DrawIndexed(6, 0, 0);
 
-    // 4. Очистка SRV (чтобы можно было писать в эти текстуры на след. кадре)
+    // Очистка SRV (чтобы можно было писать в эти текстуры на след. кадре)
     ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
     m_context->PSSetShaderResources(0, 8, nullSRVs);
 }
@@ -664,46 +736,11 @@ void BackendDX11::DrawMesh(void* vbHandle, void* ibHandle, int indexCount) {
     auto* vb = (DX11BufferWrapper*)vbHandle;
     auto* ib = (DX11BufferWrapper*)ibHandle;
 
-    // -----------------------------------------------------------
-    // 1. Обновление констант для VERTEX SHADER
-    // -----------------------------------------------------------
-    if (m_cbVS && m_activeShader->ReflectionVS.BufferSize > 0) {
-        D3D11_MAPPED_SUBRESOURCE map;
-        // Блокируем буфер для записи (WRITE_DISCARD говорит драйверу, что старые данные не нужны)
-        if (SUCCEEDED(m_context->Map(m_cbVS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
-            // Проходимся по всем переменным, которые ожидает шейдер
-            for (const auto& var : m_activeShader->ReflectionVS.Variables) {
-                // Если мы установили такое значение через SetConstant (оно есть в CPU памяти)
-                if (m_cpuConstantsStorage.count(var.Name)) {
-                    const auto& stored = m_cpuConstantsStorage[var.Name];
-                    // Копируем данные в GPU буфер по правильному смещению
-                    size_t copySize = std::min((size_t)var.Size, stored.Data.size());
-                    memcpy((uint8_t*)map.pData + var.Offset, stored.Data.data(), copySize);
-                }
-            }
-            m_context->Unmap(m_cbVS.Get(), 0);
-        }
-        // Устанавливаем обновленный буфер в слот констант вершинного шейдера
-        m_context->VSSetConstantBuffers(0, 1, m_cbVS.GetAddressOf());
-    }
+    // 1. Обновляем и биндим константы для Vertex Shader (поддержка мульти-буферов)
+    UploadConstants(m_activeShader->ReflectionVS, true);
 
-    // -----------------------------------------------------------
-    // 2. Обновление констант для PIXEL SHADER
-    // -----------------------------------------------------------
-    if (m_cbPS && m_activeShader->ReflectionPS.BufferSize > 0) {
-        D3D11_MAPPED_SUBRESOURCE map;
-        if (SUCCEEDED(m_context->Map(m_cbPS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
-            for (const auto& var : m_activeShader->ReflectionPS.Variables) {
-                if (m_cpuConstantsStorage.count(var.Name)) {
-                    const auto& stored = m_cpuConstantsStorage[var.Name];
-                    size_t copySize = std::min((size_t)var.Size, stored.Data.size());
-                    memcpy((uint8_t*)map.pData + var.Offset, stored.Data.data(), copySize);
-                }
-            }
-            m_context->Unmap(m_cbPS.Get(), 0);
-        }
-        m_context->PSSetConstantBuffers(0, 1, m_cbPS.GetAddressOf());
-    }
+    // 2. Обновляем и биндим константы для Pixel Shader
+    UploadConstants(m_activeShader->ReflectionPS, false);
 
     // -----------------------------------------------------------
     // 3. Установка геометрии (Input Assembler)

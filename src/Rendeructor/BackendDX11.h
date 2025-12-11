@@ -24,13 +24,21 @@ struct ConstantBufferVariable {
     UINT Size;
 };
 
-struct DX11ReflectionData {
+struct ReflectedConstantBuffer {
+    std::string Name;
+    UINT Slot;          // Регистр (b0, b1...)
+    UINT Size;          // Размер буфера в байтах
     std::vector<ConstantBufferVariable> Variables;
 
-    std::map<std::string, UINT> TextureSlots; // Имя -> Слот (t0, t1...)
-    std::map<std::string, UINT> SamplerSlots; // Имя -> Слот (s0, s1...)
+    // Физический буфер на GPU, привязанный к этому описанию
+    // Мы храним его прямо здесь для удобства
+    ComPtr<ID3D11Buffer> HardwareBuffer;
+};
 
-    UINT BufferSize = 0;
+struct DX11ReflectionData {
+    std::vector<ReflectedConstantBuffer> Buffers;
+    std::map<std::string, UINT> TextureSlots;
+    std::map<std::string, UINT> SamplerSlots;
 };
 
 struct DX11ShaderWrapper {
@@ -78,6 +86,7 @@ private:
     DX11ReflectionData ReflectShader(ID3DBlob* blob);
     void* CreateBufferInternal(const void* data, size_t size, UINT bindFlags);
     void CreateDepthResources(int width, int height);
+    void UploadConstants(const DX11ReflectionData& reflectionData, bool isVertexShader);
 
     int m_screenWidth = 0;
     int m_screenHeight = 0;

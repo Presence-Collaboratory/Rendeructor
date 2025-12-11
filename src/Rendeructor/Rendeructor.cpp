@@ -154,7 +154,7 @@ void Rendeructor::SetConstant(const std::string& name, const Math::float4x4& val
     if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(Math::float4x4));
 }
 
-void Rendeructor::RenderToTexture(const Texture& target) {
+void Rendeructor::SetRenderTarget(const Texture& target) {
     if (m_backend) {
         m_backend->SetRenderTarget(target.GetHandle());
     }

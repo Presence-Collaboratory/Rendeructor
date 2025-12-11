@@ -89,10 +89,10 @@ std::vector<unsigned int> CreateCubeIndices() {
 // Создаем fullscreen quad вершины
 std::vector<Vertex> CreateFullScreenQuadVertices() {
     return {
-        {-1.0f, -1.0f, 0.0f, 0.0f, 1.0f},
-        {-1.0f,  1.0f, 0.0f, 0.0f, 0.0f},
-        { 1.0f, -1.0f, 0.0f, 1.0f, 1.0f},
-        { 1.0f,  1.0f, 0.0f, 1.0f, 0.0f}
+        {Math::float3(-1.0f, -1.0f, 0.0f), Math::float2(0.0f, 1.0f)},
+        {Math::float3(-1.0f,  1.0f, 0.0f), Math::float2(0.0f, 0.0f)},
+        {Math::float3(1.0f, -1.0f, 0.0f), Math::float2(1.0f, 1.0f)},
+        {Math::float3(1.0f,  1.0f, 0.0f), Math::float2(1.0f, 0.0f)}
     };
 }
 
@@ -206,7 +206,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
                 std::chrono::high_resolution_clock::now() - startTime).count();
 
             // --- ШАГ 1: Рендер в текстуру ---
-            backend->RenderToTexture(renderTarget);
+            backend->SetRenderTarget(renderTarget);
             backend->Clear(0.1f, 0.2f, 0.3f, 1.0f); // Очищаем голубым
 
             Math::float4x4 view = Math::float4x4::look_at_lh(
@@ -227,7 +227,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
             // --- ШАГ 2: Рендер на экран с пост-процессом ---
             // Рендерим на экран (передаем пустую текстуру)
             Texture screenTarget; // Пустая текстура означает экран
-            backend->RenderToTexture(screenTarget);
+            backend->SetRenderTarget(screenTarget);
             backend->Clear(0.0f, 0.0f, 0.0f, 1.0f);
 
             backend->SetShaderPass(postProcessPass);
