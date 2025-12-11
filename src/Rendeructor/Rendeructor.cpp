@@ -40,14 +40,24 @@ void Texture::Copy(const Texture& source) {
     }
 }
 
-void Sampler::Create(const std::string& name) {
+void Texture3D::Create(int width, int height, int depth, const void* data) {
     if (Rendeructor::GetCurrent()) {
-        m_backendHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateSamplerResource(name);
+        m_backendHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateTexture3DResource(width, height, depth, 0, data);
+    }
+}
+
+void Sampler::Create(const std::string& filterName) {
+    if (Rendeructor::GetCurrent()) {
+        m_backendHandle = Rendeructor::GetCurrent()->GetBackendAPI()->CreateSamplerResource(filterName);
     }
 }
 
 void ShaderPass::AddTexture(const std::string& name, const Texture& texture) {
     m_textures[name] = &texture;
+}
+
+void ShaderPass::AddTexture(const std::string& name, const Texture3D& texture) {
+    m_textures3D[name] = &texture;
 }
 
 void ShaderPass::AddSampler(const std::string& name, const Sampler& sampler) {
@@ -83,6 +93,10 @@ Rendeructor::~Rendeructor() {
 
 Rendeructor* Rendeructor::GetCurrent() {
     return s_instance;
+}
+
+void Rendeructor::SetDepthWrite(bool enabled) {
+    if (m_backend) m_backend->SetDepthState(true, enabled);
 }
 
 bool Rendeructor::Create(const BackendConfig& config) {
@@ -168,6 +182,10 @@ void Rendeructor::DrawMesh(const Mesh& mesh) {
     if (m_backend) {
         m_backend->DrawMesh(mesh.GetVB(), mesh.GetIB(), mesh.GetIndexCount());
     }
+}
+
+void Rendeructor::DrawFullScreenQuad() {
+    if (m_backend) m_backend->DrawFullScreenQuad();
 }
 
 void Rendeructor::Present() {

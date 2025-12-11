@@ -22,6 +22,9 @@ public:
     virtual void* CreateTextureResource(int width, int height, int format, const void* initialData) = 0;
     virtual void* CreateSamplerResource(const std::string& filterMode) = 0;
 
+    virtual void* CreateTexture3DResource(int width, int height, int depth, int format, const void* initialData) = 0;
+    virtual void SetDepthState(bool enableDepthTest, bool enableDepthWrite) = 0;
+
     virtual void CopyTexture(void* dstHandle, void* srcHandle) = 0;
     virtual void SetRenderTarget(void* textureHandle) = 0;
 

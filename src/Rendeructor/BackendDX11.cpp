@@ -132,18 +132,33 @@ bool BackendDX11::InitD3D(const BackendConfig& config) {
     m_context->RSSetState(m_rasterizerState.Get());
 
     // --- Создаем Depth Stencil State ---
-    D3D11_DEPTH_STENCIL_DESC dsd = {};
-    dsd.DepthEnable = TRUE;
-    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    dsd.DepthFunc = D3D11_COMPARISON_LESS; // Стандартная проверка глубины
+    D3D11_DEPTH_STENCIL_DESC dsdSetup = {};
+    dsdSetup.DepthEnable = TRUE;
+    dsdSetup.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsdSetup.DepthFunc = D3D11_COMPARISON_LESS; // Стандартная проверка глубины
 
-    hr = m_device->CreateDepthStencilState(&dsd, m_depthStencilState.GetAddressOf());
+    hr = m_device->CreateDepthStencilState(&dsdSetup, m_depthStencilState.GetAddressOf());
     if (FAILED(hr)) { LogDebug("Failed to create Depth State"); return false; }
 
     m_context->OMSetDepthStencilState(m_depthStencilState.Get(), 1);
 
     // Создаем сам буфер глубины
     CreateDepthResources(config.Width, config.Height);
+
+    // 1. Default (Write On, Test On) - уже было, сохраним в m_dssDefault
+    D3D11_DEPTH_STENCIL_DESC dsd = {};
+    dsd.DepthEnable = TRUE;
+    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsd.DepthFunc = D3D11_COMPARISON_LESS;
+    m_device->CreateDepthStencilState(&dsd, m_dssDefault.GetAddressOf());
+
+    // 2. No Write (Write Off, Test On/Off) - для Скайбокса или прозрачности
+    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // Не пишем в глубину
+    dsd.DepthFunc = D3D11_COMPARISON_LESS_EQUAL; // Чтобы скайбокс рисовался на фоне
+    m_device->CreateDepthStencilState(&dsd, m_dssNoWrite.GetAddressOf());
+
+    // Ставим дефолт
+    m_context->OMSetDepthStencilState(m_dssDefault.Get(), 0);
 
     LogDebug("[BackendDX11] Initializing Viewport...");
     Resize(config.Width, config.Height);
@@ -268,7 +283,7 @@ void BackendDX11::CopyTexture(void* dstHandle, void* srcHandle) {
 
 void BackendDX11::SetRenderTarget(void* textureHandle) {
     ID3D11RenderTargetView* rtv = nullptr;
-    ID3D11DepthStencilView* dsv = nullptr; // <--- DSV
+    ID3D11DepthStencilView* dsv = nullptr;
     D3D11_VIEWPORT vp = {};
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
@@ -278,19 +293,26 @@ void BackendDX11::SetRenderTarget(void* textureHandle) {
         rtv = tex->RTV.Get();
         vp.Width = (float)tex->Width;
         vp.Height = (float)tex->Height;
-        // Примечание: Для рендера в текстуру нам тоже нужен свой DepthBuffer,
-        // но пока для простоты будем использовать nullptr (без глубины для текстур)
-        // или нужно создавать Depth для каждой текстуры-таргета.
-        dsv = nullptr;
+
+        // ИСПРАВЛЕНИЕ: Если размер текстуры совпадает с экраном, используем главный буфер глубины.
+        // В идеале у каждой текстуры-таргета должен быть свой DepthBuffer, но для теста хватит этого.
+        if (tex->Width == m_screenWidth && tex->Height == m_screenHeight) {
+            dsv = m_depthStencilView.Get();
+        }
+        else {
+            dsv = nullptr; // Тут по-хорошему надо создать временный DSV
+        }
     }
     else {
         rtv = m_backBufferRTV.Get();
-        dsv = m_depthStencilView.Get(); // <--- Подключаем буфер глубины экрана
+        dsv = m_depthStencilView.Get();
         vp.Width = (float)m_screenWidth;
         vp.Height = (float)m_screenHeight;
     }
 
-    dsv = (textureHandle == nullptr) ? m_depthStencilView.Get() : nullptr;
+    // Сохраняем текущие указатели для метода Clear
+    m_currentRTV = rtv;
+    m_currentDSV = dsv;
 
     m_context->OMSetRenderTargets(1, &rtv, dsv);
     m_context->RSSetViewports(1, &vp);
@@ -299,13 +321,53 @@ void BackendDX11::SetRenderTarget(void* textureHandle) {
 void BackendDX11::Clear(float r, float g, float b, float a) {
     float color[4] = { r, g, b, a };
 
-    if (m_backBufferRTV) {
-        m_context->ClearRenderTargetView(m_backBufferRTV.Get(), color);
+    if (m_currentRTV) {
+        m_context->ClearRenderTargetView(m_currentRTV, color);
     }
 
-    if (m_depthStencilView) {
-        m_context->ClearDepthStencilView(m_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    if (m_currentDSV) {
+        m_context->ClearDepthStencilView(m_currentDSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
     }
+}
+
+void BackendDX11::SetDepthState(bool enableDepthTest, bool enableDepthWrite) {
+    if (enableDepthWrite) {
+        m_context->OMSetDepthStencilState(m_dssDefault.Get(), 0);
+    }
+    else {
+        m_context->OMSetDepthStencilState(m_dssNoWrite.Get(), 0);
+    }
+}
+
+void* BackendDX11::CreateTexture3DResource(int width, int height, int depth, int format, const void* initialData) {
+    auto* wrapper = new DX11TextureWrapper();
+    wrapper->Width = width; wrapper->Height = height; wrapper->Depth = depth;
+    wrapper->Is3D = true;
+
+    D3D11_TEXTURE3D_DESC desc = {};
+    desc.Width = width; desc.Height = height; desc.Depth = depth;
+    desc.MipLevels = 1;
+    desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // Для теста градиента используем float4
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    // Подготовка данных
+    D3D11_SUBRESOURCE_DATA initData = {};
+    initData.pSysMem = initialData;
+    initData.SysMemPitch = width * sizeof(float) * 4; // Строка
+    initData.SysMemSlicePitch = width * height * sizeof(float) * 4; // Слой
+
+    if (FAILED(m_device->CreateTexture3D(&desc, &initData, wrapper->Texture3D.GetAddressOf()))) {
+        delete wrapper; return nullptr;
+    }
+
+    // Создаем SRV
+    if (FAILED(m_device->CreateShaderResourceView(wrapper->Texture3D.Get(), nullptr, wrapper->SRV.GetAddressOf()))) {
+        delete wrapper; return nullptr;
+    }
+
+    m_textures.push_back(wrapper);
+    return wrapper;
 }
 
 void* BackendDX11::CreateSamplerResource(const std::string& filterMode) {
@@ -443,7 +505,8 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
 }
 
 void BackendDX11::SetShaderPass(const ShaderPass& pass) {
-    std::string key = pass.VertexShaderPath + ":" + pass.VertexShaderEntryPoint + "|" + pass.PixelShaderPath + ":" + pass.PixelShaderEntryPoint;
+    std::string key = pass.VertexShaderPath + ":" + pass.VertexShaderEntryPoint + "|" +
+        pass.PixelShaderPath + ":" + pass.PixelShaderEntryPoint;
     if (m_shaderCache.find(key) == m_shaderCache.end()) return;
 
     m_activeShader = &m_shaderCache[key];
@@ -453,13 +516,30 @@ void BackendDX11::SetShaderPass(const ShaderPass& pass) {
     m_context->PSSetShader(m_activeShader->PixelShader.Get(), nullptr, 0);
 
     int slot = 0;
-    for (auto const& [name, texturePtr] : pass.GetTextures()) {
+
+    // Для 2D текстур - используем старый синтаксис
+    for (const auto& texPair : pass.GetTextures()) {
+        const std::string& name = texPair.first;
+        const Texture* texturePtr = texPair.second;
         auto* tex = (DX11TextureWrapper*)texturePtr->GetHandle();
         if (tex) m_context->PSSetShaderResources(slot++, 1, tex->SRV.GetAddressOf());
     }
 
+    // Для 3D текстур - используем старый синтаксис
+    for (const auto& tex3DPair : pass.GetTextures3D()) {
+        const std::string& name = tex3DPair.first;
+        const Texture3D* texturePtr = tex3DPair.second;
+        auto* tex = (DX11TextureWrapper*)texturePtr->GetHandle();
+        if (tex && tex->SRV) {
+            m_context->PSSetShaderResources(slot++, 1, tex->SRV.GetAddressOf());
+        }
+    }
+
     slot = 0;
-    for (auto const& [name, samplerPtr] : pass.GetSamplers()) {
+    // Для семплеров - используем старый синтаксис
+    for (const auto& sampPair : pass.GetSamplers()) {
+        const std::string& name = sampPair.first;
+        const Sampler* samplerPtr = sampPair.second;
         auto* smp = (DX11SamplerWrapper*)samplerPtr->GetHandle();
         if (smp) m_context->PSSetSamplers(slot++, 1, smp->State.GetAddressOf());
     }

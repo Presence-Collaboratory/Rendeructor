@@ -37,6 +37,14 @@ private:
     TextureFormat m_format = TextureFormat::RGBA8;
 };
 
+class RENDER_API Texture3D {
+public:
+    Texture3D() = default;
+    void Create(int width, int height, int depth, const void* data);
+    void* GetHandle() const { return m_backendHandle; }
+private:
+    void* m_backendHandle = nullptr;
+};
 
 class RENDER_API Sampler {
 public:
@@ -54,13 +62,16 @@ public:
     std::string VertexShaderEntryPoint = "main";
 
     void AddTexture(const std::string& name, const Texture& texture);
+    void AddTexture(const std::string& name, const Texture3D& texture);
     void AddSampler(const std::string& name, const Sampler& sampler);
 
     const std::map<std::string, const Texture*>& GetTextures() const { return m_textures; }
+    const std::map<std::string, const Texture3D*>& GetTextures3D() const { return m_textures3D; }
     const std::map<std::string, const Sampler*>& GetSamplers() const { return m_samplers; }
 
 private:
     std::map<std::string, const Texture*> m_textures;
+    std::map<std::string, const Texture3D*> m_textures3D;
     std::map<std::string, const Sampler*> m_samplers;
 };
 
@@ -116,7 +127,10 @@ public:
 
     void Clear(float r, float g, float b, float a = 1.0f);
 
+    void DrawFullScreenQuad();
     void DrawMesh(const Mesh& mesh);
+
+    void SetDepthWrite(bool enabled);
 
     void Present();
 
