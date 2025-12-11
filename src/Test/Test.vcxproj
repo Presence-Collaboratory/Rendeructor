@@ -34,6 +34,14 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -46,7 +54,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <CharacterSet>NotSet</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
     <EnableUnitySupport>true</EnableUnitySupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -54,14 +62,14 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>NotSet</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
     <EnableUnitySupport>true</EnableUnitySupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <CharacterSet>NotSet</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
     <EnableUnitySupport>true</EnableUnitySupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -69,7 +77,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>NotSet</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
     <EnableUnitySupport>true</EnableUnitySupport>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -93,32 +101,32 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</ExternalIncludePath>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\build\bin\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</ExternalIncludePath>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\build\bin\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</ExternalIncludePath>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\build\bin\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</ExternalIncludePath>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\build\bin\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -137,8 +145,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -160,8 +167,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -179,8 +185,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -202,8 +207,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

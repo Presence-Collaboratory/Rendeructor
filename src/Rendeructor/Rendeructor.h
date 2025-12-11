@@ -65,6 +65,8 @@ public:
 
     void SetShaderPass(ShaderPass& pass);
 
+    void CompilePass(ShaderPass& pass);
+
     void SetConstant(const std::string& name, float value);
     void SetConstant(const std::string& name, const Math::float2& value);
     void SetConstant(const std::string& name, const Math::float3& value);
@@ -72,6 +74,8 @@ public:
     void SetConstant(const std::string& name, const Math::float4x4& value);
 
     void RenderViewportSurface(const Texture& target = Texture());
+
+    void Present();
 
     static Rendeructor* GetCurrent();
     BackendInterface* GetBackendAPI() { return m_backend; }

@@ -11,6 +11,7 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
+#include <comdef.h>
 
 #include <MathAPI/MathAPI.h>
 

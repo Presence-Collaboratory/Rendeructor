@@ -1,59 +1,128 @@
+#include "pch.h"
+#include "Log.h"
 #include "BackendDX11.h"
 #include "Rendeructor.h"
+#include <cstdio>
+#include <string>
+#include <vector>
 
 struct SimpleVertex {
     float x, y, z;
     float u, v;
 };
 
-BackendDX11::BackendDX11() {}
+BackendDX11::BackendDX11() {
+    LogDebug("[BackendDX11] Constructor called.");
+}
 
 BackendDX11::~BackendDX11() {
     Shutdown();
 }
 
 bool BackendDX11::Initialize(const BackendConfig& config) {
-    if (!config.WindowHandle) return false;
+    LogDebug("[BackendDX11] Initializing...");
+
+    if (!config.WindowHandle) {
+        LogDebug("[BackendDX11] Error: WindowHandle is NULL");
+        return false;
+    }
     m_hwnd = (HWND)config.WindowHandle;
-    if (!InitD3D(config)) return false;
+
+    if (!InitD3D(config)) {
+        LogDebug("[BackendDX11] Error: InitD3D failed.");
+        return false;
+    }
+
+    LogDebug("[BackendDX11] InitD3D success. Initializing Geometry...");
     InitQuadGeometry();
+
+    LogDebug("[BackendDX11] Initialization Complete.");
     return true;
 }
 
 bool BackendDX11::InitD3D(const BackendConfig& config) {
+    LogDebug("[BackendDX11] Setting up SwapChain...");
+
     DXGI_SWAP_CHAIN_DESC scd = {};
     scd.BufferCount = 1;
     scd.BufferDesc.Width = config.Width;
     scd.BufferDesc.Height = config.Height;
     scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+    // Безопасная частота обновления
+    scd.BufferDesc.RefreshRate.Numerator = 0;
+    scd.BufferDesc.RefreshRate.Denominator = 1;
+
     scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scd.OutputWindow = m_hwnd;
     scd.SampleDesc.Count = 1;
-    scd.Windowed = (config.ScreenMode != ScreenMode::Fullscreen);
+    scd.SampleDesc.Quality = 0;
+    scd.Windowed = TRUE; // Принудительно оконный для теста
     scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
+    // Снимаем ВСЕ флаги отладки для стабильности
     UINT flags = 0;
-#ifdef _DEBUG
-    flags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
+    // flags |= D3D11_CREATE_DEVICE_DEBUG; // <--- ВЫКЛЮЧЕНО
+
+    D3D_FEATURE_LEVEL featureLevels[] = {
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_1,
+        D3D_FEATURE_LEVEL_10_0,
+    };
+    D3D_FEATURE_LEVEL featureLevel;
+
+    LogDebug("[BackendDX11] Calling D3D11CreateDeviceAndSwapChain...");
 
     HRESULT hr = D3D11CreateDeviceAndSwapChain(
         nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags,
-        nullptr, 0, D3D11_SDK_VERSION, &scd,
-        m_swapChain.GetAddressOf(), m_device.GetAddressOf(), nullptr, m_context.GetAddressOf()
+        featureLevels, ARRAYSIZE(featureLevels), D3D11_SDK_VERSION, &scd,
+        m_swapChain.GetAddressOf(), m_device.GetAddressOf(), &featureLevel, m_context.GetAddressOf()
     );
 
-    if (FAILED(hr)) return false;
+    if (FAILED(hr)) {
+        LogDebug("[BackendDX11] HARDWARE Creation FAILED! HRESULT: 0x%08X", (unsigned int)hr);
+        LogDebug("[BackendDX11] Trying WARP (Software) Driver...");
 
+        // Попытка 2: Программный рендеринг (если видеокарта виновата)
+        hr = D3D11CreateDeviceAndSwapChain(
+            nullptr, D3D_DRIVER_TYPE_WARP, nullptr, flags,
+            featureLevels, ARRAYSIZE(featureLevels), D3D11_SDK_VERSION, &scd,
+            m_swapChain.GetAddressOf(), m_device.GetAddressOf(), &featureLevel, m_context.GetAddressOf()
+        );
+
+        if (FAILED(hr)) {
+            LogDebug("[BackendDX11] WARP Creation FAILED too! HRESULT: 0x%08X", (unsigned int)hr);
+            return false;
+        }
+        else {
+            LogDebug("[BackendDX11] WARP (Software) Created successfully.");
+        }
+    }
+    else {
+        LogDebug("[BackendDX11] Hardware Device Created successfully. Feature Level: 0x%X", featureLevel);
+    }
+
+    // RTV
     ComPtr<ID3D11Texture2D> backBuffer;
-    m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf());
-    m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, m_backBufferRTV.GetAddressOf());
+    hr = m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf());
+    if (FAILED(hr)) {
+        LogDebug("[BackendDX11] Failed to get backbuffer. HRESULT: 0x%08X", (unsigned int)hr);
+        return false;
+    }
 
+    hr = m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, m_backBufferRTV.GetAddressOf());
+    if (FAILED(hr)) {
+        LogDebug("[BackendDX11] Failed to create RTV. HRESULT: 0x%08X", (unsigned int)hr);
+        return false;
+    }
+
+    LogDebug("[BackendDX11] Initializing Viewport...");
     Resize(config.Width, config.Height);
     return true;
 }
 
 void BackendDX11::Shutdown() {
+    LogDebug("[BackendDX11] Shutdown called.");
     for (auto* t : m_textures) delete t;
     m_textures.clear();
     for (auto* s : m_samplers) delete s;
@@ -63,7 +132,7 @@ void BackendDX11::Shutdown() {
 
 void BackendDX11::Resize(int width, int height) {
     if (!m_context) return;
-    D3D11_VIEWPORT vp = { 0 };
+    D3D11_VIEWPORT vp = {};
     vp.Width = (float)width;
     vp.Height = (float)height;
     vp.MinDepth = 0.0f;
@@ -98,7 +167,13 @@ void* BackendDX11::CreateTextureResource(int width, int height, int format) {
     default: desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; break;
     }
 
-    m_device->CreateTexture2D(&desc, nullptr, wrapper->Texture.GetAddressOf());
+    HRESULT hr = m_device->CreateTexture2D(&desc, nullptr, wrapper->Texture.GetAddressOf());
+    if (FAILED(hr)) {
+        LogDebug("[BackendDX11] Failed to create texture. HRESULT: 0x%08X", (unsigned int)hr);
+        delete wrapper;
+        return nullptr;
+    }
+
     m_device->CreateShaderResourceView(wrapper->Texture.Get(), nullptr, wrapper->SRV.GetAddressOf());
     m_device->CreateRenderTargetView(wrapper->Texture.Get(), nullptr, wrapper->RTV.GetAddressOf());
     m_textures.push_back(wrapper);
@@ -145,9 +220,21 @@ void BackendDX11::InitQuadGeometry() {
 bool BackendDX11::CompileShader(const std::string& path, const std::string& entry, const std::string& profile, ID3DBlob** outBlob) {
     std::wstring wpath(path.begin(), path.end());
     ID3DBlob* errorBlob = nullptr;
-    HRESULT hr = D3DCompileFromFile(wpath.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entry.c_str(), profile.c_str(), 0, 0, outBlob, &errorBlob);
+    // ВАЖНО: Добавим флаг отладки для шейдеров, чтобы видеть ошибки
+    UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
+#ifdef _DEBUG
+    flags |= D3DCOMPILE_DEBUG;
+#endif
+
+    HRESULT hr = D3DCompileFromFile(wpath.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entry.c_str(), profile.c_str(), flags, 0, outBlob, &errorBlob);
     if (FAILED(hr)) {
-        if (errorBlob) errorBlob->Release();
+        if (errorBlob) {
+            LogDebug("[Shader Error] %s", (char*)errorBlob->GetBufferPointer());
+            errorBlob->Release();
+        }
+        else {
+            LogDebug("[Shader Error] Failed to find file: %s", path.c_str());
+        }
         return false;
     }
     return true;
@@ -191,6 +278,8 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
     std::string key = pass.VertexShaderPath + ":" + pass.VertexShaderEntryPoint + "|" + pass.PixelShaderPath + ":" + pass.PixelShaderEntryPoint;
     if (m_shaderCache.find(key) != m_shaderCache.end()) return;
 
+    LogDebug("[BackendDX11] Compiling Shader Pass: %s", key.c_str());
+
     DX11ShaderWrapper sw;
     ID3DBlob* vsBlob = nullptr;
     ID3DBlob* psBlob = nullptr;
@@ -206,11 +295,17 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
         m_device->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), sw.InputLayout.GetAddressOf());
         vsBlob->Release();
     }
+    else {
+        LogDebug("[BackendDX11] Vertex Shader Compilation Failed!");
+    }
 
     if (CompileShader(pass.PixelShaderPath, pass.PixelShaderEntryPoint, "ps_5_0", &psBlob)) {
         m_device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, sw.PixelShader.GetAddressOf());
         sw.ReflectionPS = ReflectShader(psBlob);
         psBlob->Release();
+    }
+    else {
+        LogDebug("[BackendDX11] Pixel Shader Compilation Failed!");
     }
 
     m_shaderCache[key] = sw;

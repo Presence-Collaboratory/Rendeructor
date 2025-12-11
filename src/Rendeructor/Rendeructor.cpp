@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "Rendeructor.h"
 #include "BackendDX11.h"
 
@@ -68,6 +69,12 @@ void Rendeructor::SetShaderPass(ShaderPass& pass) {
     }
 }
 
+void Rendeructor::CompilePass(ShaderPass& pass) {
+    if (m_backend) {
+        m_backend->PrepareShaderPass(pass);
+    }
+}
+
 void Rendeructor::SetConstant(const std::string& name, float value) {
     if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(float));
 }
@@ -90,4 +97,10 @@ void Rendeructor::SetConstant(const std::string& name, const Math::float4x4& val
 
 void Rendeructor::RenderViewportSurface(const Texture& target) {
     if (m_backend) m_backend->RenderViewportSurface(target.GetHandle());
+}
+
+void Rendeructor::Present() {
+    if (m_backend) {
+        m_backend->EndFrame();
+    }
 }

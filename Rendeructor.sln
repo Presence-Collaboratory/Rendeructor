@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.32228.343
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "src\Test\Test.vcxproj", "{94FACB73-D971-4A97-ABAD-32B2DD6C9F69}"
+	ProjectSection(ProjectDependencies) = postProject
+		{39EBA7BD-1B31-4479-B4D3-12072F4FE839} = {39EBA7BD-1B31-4479-B4D3-12072F4FE839}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rendeructor", "src\Rendeructor\Rendeructor.vcxproj", "{39EBA7BD-1B31-4479-B4D3-12072F4FE839}"
 EndProject

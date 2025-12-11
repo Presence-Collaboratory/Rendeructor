@@ -73,18 +73,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Build\bin\</OutDir>
+    <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Build\bin\</OutDir>
+    <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Build\bin\</OutDir>
+    <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Build\bin\</OutDir>
+    <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -100,6 +108,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <ImportLibrary>$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\$(ProjectName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -120,6 +129,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <ImportLibrary>$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\$(ProjectName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -136,6 +146,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <ImportLibrary>$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\$(ProjectName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -156,6 +167,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <ImportLibrary>$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\$(ProjectName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -178,6 +190,7 @@
     <ClInclude Include="BackendDX11.h" />
     <ClInclude Include="BackendInterface.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Log.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Rendeructor.h" />
     <ClInclude Include="RendeructorAPI.h" />
