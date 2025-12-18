@@ -139,7 +139,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
             renderer.Clear(rtShadow, 1, 1, 1, 1);
             renderer.ClearDepth(1.0f);
 
-            // <--- ИЗМЕНЕНИЕ: Вместо SetCullMode и SetDepthWrite ставим структуру
             renderer.SetPipelineState(stateScene);
 
             renderer.SetConstant("ViewProjection", lightVP);

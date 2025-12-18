@@ -22,11 +22,10 @@ public:
     void SetScissorEnabled(bool enabled);
     void SetScissor(int x, int y, int width, int height);
 
-    void SetConstant(const std::string& name, float value);
-    void SetConstant(const std::string& name, const Math::float2& value);
-    void SetConstant(const std::string& name, const Math::float3& value);
-    void SetConstant(const std::string& name, const Math::float4& value);
-    void SetConstant(const std::string& name, const Math::float4x4& value);
+    template<typename T>
+    void SetConstant(const std::string& name, const T& value) {
+        if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(T));
+    }
     void SetCustomConstant(const std::string& bufferName, const void* data, size_t size);
     template <typename T>
     void SetCustomConstant(const std::string& bufferName, const T& dataStructure) {

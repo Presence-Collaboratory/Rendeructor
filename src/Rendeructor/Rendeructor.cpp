@@ -92,29 +92,7 @@ void Rendeructor::SetShaderPass(ShaderPass& pass) {
 }
 
 void Rendeructor::CompilePass(ShaderPass& pass) {
-    if (m_backend) {
-        m_backend->PrepareShaderPass(pass);
-    }
-}
-
-void Rendeructor::SetConstant(const std::string& name, float value) {
-    if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(float));
-}
-
-void Rendeructor::SetConstant(const std::string& name, const Math::float2& value) {
-    if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(Math::float2));
-}
-
-void Rendeructor::SetConstant(const std::string& name, const Math::float3& value) {
-    if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(Math::float3));
-}
-
-void Rendeructor::SetConstant(const std::string& name, const Math::float4& value) {
-    if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(Math::float4));
-}
-
-void Rendeructor::SetConstant(const std::string& name, const Math::float4x4& value) {
-    if (m_backend) m_backend->UpdateConstantRaw(name, &value, sizeof(Math::float4x4));
+    if (m_backend) m_backend->PrepareShaderPass(pass);
 }
 
 void Rendeructor::SetCustomConstant(const std::string& bufferName, const void* data, size_t size) {
