@@ -10,4 +10,7 @@
   <ItemGroup>
     <FxCompile Include="Shader.hlsl" />
   </ItemGroup>
+  <ItemGroup>
+    <Object Include="teapot.obj" />
+  </ItemGroup>
 </Project>

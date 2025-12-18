@@ -28,6 +28,9 @@
     <Filter Include="Third-Party\Stb image">
       <UniqueIdentifier>{6de83b67-373b-40d2-8376-562cba1e6c0c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Third-Party\TinyObjLoader">
+      <UniqueIdentifier>{b7691b3b-25be-413f-a6e2-9394f65c31e4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -99,6 +102,12 @@
     <ClInclude Include="Log.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="RendeructorDefines.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\TinyObjLoader\TinyObjLoader.h">
+      <Filter>Third-Party\TinyObjLoader</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -110,10 +119,13 @@
     <ClCompile Include="BackendDX11.cpp">
       <Filter>Backend\Implementations\DirectX 11</Filter>
     </ClCompile>
-    <ClCompile Include="Rendeructor.cpp">
+    <ClCompile Include="RendeructorCore.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="ImageLoader.cpp">
+    <ClCompile Include="RendeructorMesh.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="RendeructorTexture.cpp">
       <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>

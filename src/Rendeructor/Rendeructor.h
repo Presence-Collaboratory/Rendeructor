@@ -1,107 +1,6 @@
 #pragma once
-#include "framework.h"
+#include "RendeructorDefines.h"
 #include "BackendInterface.h"
-#include "RendeructorAPI.h"
-
-enum class ScreenMode { Windowed, Fullscreen, Borderless };
-enum class RenderAPI { DirectX11, DirectX12, OpenGL, Vulkan };
-enum class TextureFormat { RGBA8, RGBA16F, R16F, R32F };
-
-struct RENDER_API BackendConfig {
-    int Width = 1920;
-    int Height = 1080;
-    ScreenMode ScreenMode = ScreenMode::Windowed;
-    RenderAPI API = RenderAPI::DirectX11;
-    void* WindowHandle = nullptr;
-};
-
-class RENDER_API Texture {
-public:
-    Texture() = default;
-
-    void Create(int width, int height, TextureFormat format);
-
-    bool LoadFromDisk(const std::string& path);
-
-    void Copy(const Texture& source);
-
-    void* GetHandle() const { return m_backendHandle; }
-    int GetWidth() const { return m_width; }
-    int GetHeight() const { return m_height; }
-    TextureFormat GetFormat() const { return m_format; }
-
-private:
-    void* m_backendHandle = nullptr;
-    int m_width = 0;
-    int m_height = 0;
-    TextureFormat m_format = TextureFormat::RGBA8;
-};
-
-class RENDER_API Texture3D {
-public:
-    Texture3D() = default;
-    void Create(int width, int height, int depth, const void* data);
-    void* GetHandle() const { return m_backendHandle; }
-private:
-    void* m_backendHandle = nullptr;
-};
-
-class RENDER_API Sampler {
-public:
-    void Create(const std::string& filterName = "Linear");
-    void* GetHandle() const { return m_backendHandle; }
-private:
-    void* m_backendHandle = nullptr;
-};
-
-class RENDER_API ShaderPass {
-public:
-    std::string PixelShaderPath;
-    std::string PixelShaderEntryPoint = "main";
-    std::string VertexShaderPath;
-    std::string VertexShaderEntryPoint = "main";
-
-    void AddTexture(const std::string& name, const Texture& texture);
-    void AddTexture(const std::string& name, const Texture3D& texture);
-    void AddSampler(const std::string& name, const Sampler& sampler);
-
-    const std::map<std::string, const Texture*>& GetTextures() const { return m_textures; }
-    const std::map<std::string, const Texture3D*>& GetTextures3D() const { return m_textures3D; }
-    const std::map<std::string, const Sampler*>& GetSamplers() const { return m_samplers; }
-
-private:
-    std::map<std::string, const Texture*> m_textures;
-    std::map<std::string, const Texture3D*> m_textures3D;
-    std::map<std::string, const Sampler*> m_samplers;
-};
-
-struct Vertex {
-    Math::float3 Position;
-    Math::float2 UV;
-
-    Vertex() = default;
-    Vertex(float x, float y, float z, float u, float v)
-        : Position(x, y, z), UV(u, v) {}
-    Vertex(const Math::float3& pos, const Math::float2& uv)
-        : Position(pos.xyz()), UV(uv) {}
-};
-
-class RENDER_API Mesh {
-public:
-    Mesh() = default;
-
-    void Create(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
-
-    void* GetVB() const { return m_vbHandle; }
-    void* GetIB() const { return m_ibHandle; }
-    int GetIndexCount() const { return m_indexCount; }
-
-private:
-    void* m_vbHandle = nullptr;
-    void* m_ibHandle = nullptr;
-    int m_indexCount = 0;
-};
-
 
 class RENDER_API Rendeructor {
 public:
@@ -113,27 +12,41 @@ public:
     void Destroy();
 
     void SetShaderPass(ShaderPass& pass);
-
     void CompilePass(ShaderPass& pass);
+
+    void SetCullMode(CullMode mode);
+    void SetBlendMode(BlendMode mode);
+    void SetDepthState(CompareFunc func, bool writeEnabled);
+    void SetScissor(int x, int y, int width, int height);
+    void SetScissorEnabled(bool enabled);
+    void SetDepthWrite(bool enabled);
 
     void SetConstant(const std::string& name, float value);
     void SetConstant(const std::string& name, const Math::float2& value);
     void SetConstant(const std::string& name, const Math::float3& value);
     void SetConstant(const std::string& name, const Math::float4& value);
     void SetConstant(const std::string& name, const Math::float4x4& value);
+    void SetCustomConstant(const std::string& bufferName, const void* data, size_t size);
+    template <typename T>
+    void SetCustomConstant(const std::string& bufferName, const T& dataStructure) {
+        SetCustomConstant(bufferName, &dataStructure, sizeof(T));
+    }
 
-    void SetRenderTarget(const Texture& target = Texture());
+    void SetRenderTarget(const Texture& target1 = Texture(),
+                         const Texture& target2 = Texture(),
+                         const Texture& target3 = Texture(),
+                         const Texture& target4 = Texture());
     void RenderPassToTexture(const Texture& target);
-
     void RenderPassToScreen();
-
     void Clear(float r, float g, float b, float a = 1.0f);
+    void Clear(const Texture& target, float r, float g, float b, float a = 1.0f);
+    void Clear(const Texture& t1, const Texture& t2, float r, float g, float b, float a = 1.0f);
+    void Clear(const Texture& t1, const Texture& t2, const Texture& t3, float r, float g, float b, float a = 1.0f);
+    void ClearDepth(float depth = 1.0f, int stencil = 0);
 
     void DrawFullScreenQuad();
     void DrawMesh(const Mesh& mesh);
-
-    void SetDepthWrite(bool enabled);
-
+    void DrawMeshInstanced(const Mesh& mesh, const InstanceBuffer& instances);
     void Present();
 
     static Rendeructor* GetCurrent();

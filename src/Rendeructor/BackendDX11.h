@@ -11,7 +11,7 @@ struct DX11TextureWrapper {
     int Width;
     int Height;
     int Depth;
-    bool Is3D = false;
+    TextureType Type;
 };
 
 struct DX11SamplerWrapper {
@@ -26,13 +26,11 @@ struct ConstantBufferVariable {
 
 struct ReflectedConstantBuffer {
     std::string Name;
-    UINT Slot;          // Регистр (b0, b1...)
-    UINT Size;          // Размер буфера в байтах
+    UINT Slot;
+    UINT Size;
     std::vector<ConstantBufferVariable> Variables;
-
-    // Физический буфер на GPU, привязанный к этому описанию
-    // Мы храним его прямо здесь для удобства
     ComPtr<ID3D11Buffer> HardwareBuffer;
+    std::vector<uint8_t> ShadowData;
 };
 
 struct DX11ReflectionData {
@@ -59,24 +57,37 @@ class BackendDX11 : public BackendInterface {
 public:
     BackendDX11();
     ~BackendDX11();
+
     bool Initialize(const BackendConfig& config) override;
     void Shutdown() override;
     void Resize(int width, int height) override;
     void BeginFrame() override;
     void EndFrame() override;
+
+    void SetCullMode(CullMode mode) override;
+    void SetBlendMode(BlendMode mode) override;
+    void SetDepthState(CompareFunc func, bool writeEnabled) override;
+    void SetScissorRect(int x, int y, int width, int height) override;
+    void SetScissorEnabled(bool enabled) override;
+
     void* CreateTextureResource(int width, int height, int format, const void* initialData) override;
-    void* CreateSamplerResource(const std::string& filterMode) override;
     void* CreateTexture3DResource(int width, int height, int depth, int format, const void* initialData) override;
-    void SetDepthState(bool enableDepthTest, bool enableDepthWrite) override;
+    void* CreateTextureCubeResource(int width, int height, int format, const void** initialData) override;
+    void* CreateSamplerResource(const std::string& filterMode) override;
     void CopyTexture(void* dstHandle, void* srcHandle) override;
-    void SetRenderTarget(void* textureHandle) override;
+    void SetRenderTarget(void* target1, void* target2 = nullptr, void* target3 = nullptr, void* target4 = nullptr) override;
     void Clear(float r, float g, float b, float a) override;
+    void ClearTexture(void* textureHandle, float r, float g, float b, float a) override;
+    void ClearDepth(float depth, int stencil) override;
     void PrepareShaderPass(const ShaderPass& pass) override;
     void SetShaderPass(const ShaderPass& pass) override;
     void UpdateConstantRaw(const std::string& name, const void* data, size_t size) override;
+    void UploadConstants(DX11ReflectionData& reflectionData, ShaderType SType);
     void DrawFullScreenQuad() override;
     void* CreateVertexBuffer(const void* data, size_t size, int stride) override;
     void* CreateIndexBuffer(const void* data, size_t size) override;
+    void* CreateInstanceBuffer(const void* data, size_t size, int stride) override;
+    void DrawMeshInstanced(void* vbHandle, void* ibHandle, int indexCount, void* instHandle, int instanceCount, int instanceStride) override;
     void DrawMesh(void* vbHandle, void* ibHandle, int indexCount) override;
 
 private:
@@ -86,7 +97,12 @@ private:
     DX11ReflectionData ReflectShader(ID3DBlob* blob);
     void* CreateBufferInternal(const void* data, size_t size, UINT bindFlags);
     void CreateDepthResources(int width, int height);
-    void UploadConstants(const DX11ReflectionData& reflectionData, bool isVertexShader);
+    void CreateInputLayoutFromShader(const std::vector<char>& shaderBytecode, ID3D11InputLayout** outLayout);
+    void SetRenderTargetsInternal(ID3D11RenderTargetView* rtvs[], int count);
+    void ClearRTV(ID3D11RenderTargetView* rtv, float r, float g, float b, float a);
+    void UnbindResources();
+    void InitRenderStates();
+    ID3D11DepthStencilState* GetDepthState(CompareFunc func, bool write);
 
     int m_screenWidth = 0;
     int m_screenHeight = 0;
@@ -121,4 +137,29 @@ private:
 
     ID3D11RenderTargetView* m_currentRTV = nullptr;
     ID3D11DepthStencilView* m_currentDSV = nullptr;
+
+    std::vector<ID3D11RenderTargetView*> m_boundRTVs;
+
+    CullMode m_cachedCullMode = CullMode::Back; // Допустим дефолт
+    BlendMode m_cachedBlendMode = BlendMode::Opaque;
+    CompareFunc m_cachedDepthFunc = CompareFunc::Less;
+    bool m_cachedDepthWrite = true;
+    bool m_cachedScissorEnabled = false;
+
+    ComPtr<ID3D11RasterizerState> m_rasterizerStates[3][2];// Индекс 0: None, 1: Front, 2: Back // Умножаем на 2: набор для Scissor Disabled и Scissor Enabled
+
+    ComPtr<ID3D11BlendState> m_blendStates[3]; // Opaque, Alpha, Additive
+
+    std::map<uint32_t, ComPtr<ID3D11DepthStencilState>> m_depthStates;
+
+    struct DepthBufferCacheItem {
+        ComPtr<ID3D11Texture2D> Texture;
+        ComPtr<ID3D11DepthStencilView> DSV;
+    };
+
+    // map автоматически сортирует ключи, для редких переключений разрешений это окей
+    std::map<uint64_t, DepthBufferCacheItem> m_depthCache;
+
+    // Хелпер: найти или создать DSV нужного размера
+    ID3D11DepthStencilView* GetDepthStencilForSize(int width, int height);
 };
