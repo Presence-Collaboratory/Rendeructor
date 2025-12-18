@@ -214,8 +214,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="RendeructorCore.cpp" />
+    <ClCompile Include="RendeructorBuffers.cpp" />
+    <ClCompile Include="Rendeructor.cpp" />
     <ClCompile Include="RendeructorMesh.cpp" />
+    <ClCompile Include="RendeructorShader.cpp" />
     <ClCompile Include="RendeructorTexture.cpp" />
   </ItemGroup>
   <ItemGroup>

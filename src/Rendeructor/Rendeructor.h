@@ -14,12 +14,13 @@ public:
     void SetShaderPass(ShaderPass& pass);
     void CompilePass(ShaderPass& pass);
 
+    PipelineState GetPipelineState() const { return m_currentState; }
+    void SetPipelineState(const PipelineState& state);
     void SetCullMode(CullMode mode);
     void SetBlendMode(BlendMode mode);
     void SetDepthState(CompareFunc func, bool writeEnabled);
-    void SetScissor(int x, int y, int width, int height);
     void SetScissorEnabled(bool enabled);
-    void SetDepthWrite(bool enabled);
+    void SetScissor(int x, int y, int width, int height);
 
     void SetConstant(const std::string& name, float value);
     void SetConstant(const std::string& name, const Math::float2& value);
@@ -54,6 +55,7 @@ public:
 
 private:
     BackendInterface* m_backend = nullptr;
+    PipelineState m_currentState;
     BackendConfig m_currentConfig;
     static Rendeructor* s_instance;
 };

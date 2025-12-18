@@ -42,30 +42,46 @@ void Rendeructor::Restart(const BackendConfig& config) {
     Create(config);
 }
 
+void Rendeructor::SetPipelineState(const PipelineState& state) {
+    m_currentState = state;
+    if (m_backend) {
+        m_backend->SetPipelineState(state);
+    }
+}
+
 void Rendeructor::SetCullMode(CullMode mode) {
-    if (m_backend) m_backend->SetCullMode(mode);
+    if (m_currentState.Cull != mode) {
+        m_currentState.Cull = mode;
+        // —разу пушим изменени€. 
+        // ¬ будущем можно делать это лениво перед Draw call, но пока оставим сразу.
+        if (m_backend) m_backend->SetPipelineState(m_currentState);
+    }
 }
 
 void Rendeructor::SetBlendMode(BlendMode mode) {
-    if (m_backend) m_backend->SetBlendMode(mode);
+    if (m_currentState.Blend != mode) {
+        m_currentState.Blend = mode;
+        if (m_backend) m_backend->SetPipelineState(m_currentState);
+    }
 }
 
 void Rendeructor::SetDepthState(CompareFunc func, bool writeEnabled) {
-    if (m_backend) m_backend->SetDepthState(func, writeEnabled);
+    if (m_currentState.DepthFunc != func || m_currentState.DepthWrite != writeEnabled) {
+        m_currentState.DepthFunc = func;
+        m_currentState.DepthWrite = writeEnabled;
+        if (m_backend) m_backend->SetPipelineState(m_currentState);
+    }
+}
+
+void Rendeructor::SetScissorEnabled(bool enabled) {
+    if (m_currentState.ScissorTest != enabled) {
+        m_currentState.ScissorTest = enabled;
+        if (m_backend) m_backend->SetPipelineState(m_currentState);
+    }
 }
 
 void Rendeructor::SetScissor(int x, int y, int width, int height) {
     if (m_backend) m_backend->SetScissorRect(x, y, width, height);
-}
-
-void Rendeructor::SetScissorEnabled(bool enabled) {
-    if (m_backend) m_backend->SetScissorEnabled(enabled);
-}
-
-void Rendeructor::SetDepthWrite(bool enabled) {
-    if (m_backend) {
-        m_backend->SetDepthState(CompareFunc::Less, enabled);
-    }
 }
 
 void Rendeructor::SetShaderPass(ShaderPass& pass) {

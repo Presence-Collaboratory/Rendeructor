@@ -64,11 +64,8 @@ public:
     void BeginFrame() override;
     void EndFrame() override;
 
-    void SetCullMode(CullMode mode) override;
-    void SetBlendMode(BlendMode mode) override;
-    void SetDepthState(CompareFunc func, bool writeEnabled) override;
-    void SetScissorRect(int x, int y, int width, int height) override;
-    void SetScissorEnabled(bool enabled) override;
+    void SetPipelineState(const PipelineState& state) override;
+    void SetScissorRect(int x, int y, int width, int height);
 
     void* CreateTextureResource(int width, int height, int format, const void* initialData) override;
     void* CreateTexture3DResource(int width, int height, int depth, int format, const void* initialData) override;
@@ -131,6 +128,9 @@ private:
     ComPtr<ID3D11DepthStencilView> m_depthStencilView;
     ComPtr<ID3D11DepthStencilState> m_depthStencilState;
     ComPtr<ID3D11RasterizerState> m_rasterizerState;
+
+    PipelineState m_activeState;
+    bool m_firstStateSet = true;
 
     ComPtr<ID3D11DepthStencilState> m_dssDefault;
     ComPtr<ID3D11DepthStencilState> m_dssNoWrite;

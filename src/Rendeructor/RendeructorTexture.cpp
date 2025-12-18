@@ -53,7 +53,7 @@ bool TextureCube::LoadFromFiles(const std::vector<std::string>& paths) {
     }
 
     // Временное хранилище данных
-    std::vector<void*> pixelData(6, nullptr);
+    std::vector<const void*> pixelData(6, nullptr);
     int width = 0, height = 0, channels = 0;
     bool success = true;
 
@@ -88,8 +88,8 @@ bool TextureCube::LoadFromFiles(const std::vector<std::string>& paths) {
     }
 
     // Чистим память STB
-    for (void* ptr : pixelData) {
-        if (ptr) stbi_image_free(ptr);
+    for (auto ptr : pixelData) {
+        if (ptr) stbi_image_free((void*)ptr);
     }
 
     return (m_backendHandle != nullptr);

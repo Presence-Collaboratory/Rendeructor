@@ -13,11 +13,8 @@ public:
     virtual void EndFrame() = 0;
 
     // State Management
-    virtual void SetCullMode(CullMode mode) = 0;
-    virtual void SetBlendMode(BlendMode mode) = 0;
-    virtual void SetDepthState(CompareFunc func, bool writeEnabled) = 0;
+    virtual void SetPipelineState(const PipelineState& state) = 0;
     virtual void SetScissorRect(int x, int y, int width, int height) = 0;
-    virtual void SetScissorEnabled(bool enabled) = 0;
 
     // Resources
     virtual void* CreateTextureResource(int width, int height, int format, const void* initialData) = 0;

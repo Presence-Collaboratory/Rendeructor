@@ -76,6 +76,14 @@ struct Vertex {
                                                                                                                     Bitangent(bitangent) {}
 };
 
+struct RENDER_API PipelineState {
+    CullMode Cull = CullMode::Back;
+    BlendMode Blend = BlendMode::Opaque;
+    CompareFunc DepthFunc = CompareFunc::Less;
+    bool DepthWrite = true;
+    bool ScissorTest = false;
+};
+
 class RENDER_API Texture {
 public:
     Texture() = default;

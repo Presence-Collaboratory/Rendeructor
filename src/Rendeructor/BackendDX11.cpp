@@ -1,4 +1,4 @@
-#include "pch.h"
+п»ї#include "pch.h"
 #include "Log.h"
 #include "BackendDX11.h"
 #include "Rendeructor.h"
@@ -52,7 +52,7 @@ bool BackendDX11::InitD3D(const BackendConfig& config) {
     scd.BufferDesc.Height = config.Height;
     scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-    // Безопасная частота обновления
+    // Р‘РµР·РѕРїР°СЃРЅР°СЏ С‡Р°СЃС‚РѕС‚Р° РѕР±РЅРѕРІР»РµРЅРёСЏ
     scd.BufferDesc.RefreshRate.Numerator = 0;
     scd.BufferDesc.RefreshRate.Denominator = 1;
 
@@ -60,7 +60,7 @@ bool BackendDX11::InitD3D(const BackendConfig& config) {
     scd.OutputWindow = m_hwnd;
     scd.SampleDesc.Count = 1;
     scd.SampleDesc.Quality = 0;
-    scd.Windowed = TRUE; // Принудительно оконный для теста
+    scd.Windowed = TRUE; // РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕ РѕРєРѕРЅРЅС‹Р№ РґР»СЏ С‚РµСЃС‚Р°
     scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     UINT flags = 0;
@@ -103,10 +103,10 @@ bool BackendDX11::InitD3D(const BackendConfig& config) {
         return false;
     }
 
-    // --- Создаем Rasterizer State (Отключаем Culling для теста) ---
+    // --- РЎРѕР·РґР°РµРј Rasterizer State (РћС‚РєР»СЋС‡Р°РµРј Culling РґР»СЏ С‚РµСЃС‚Р°) ---
     D3D11_RASTERIZER_DESC rd = {};
     rd.FillMode = D3D11_FILL_SOLID;
-    rd.CullMode = D3D11_CULL_NONE; // Рисуем обе стороны граней
+    rd.CullMode = D3D11_CULL_NONE; // Р РёСЃСѓРµРј РѕР±Рµ СЃС‚РѕСЂРѕРЅС‹ РіСЂР°РЅРµР№
     rd.FrontCounterClockwise = FALSE;
     rd.DepthClipEnable = TRUE;
 
@@ -115,33 +115,33 @@ bool BackendDX11::InitD3D(const BackendConfig& config) {
 
     m_context->RSSetState(m_rasterizerState.Get());
 
-    // --- Создаем Depth Stencil State ---
+    // --- РЎРѕР·РґР°РµРј Depth Stencil State ---
     D3D11_DEPTH_STENCIL_DESC dsdSetup = {};
     dsdSetup.DepthEnable = TRUE;
     dsdSetup.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    dsdSetup.DepthFunc = D3D11_COMPARISON_LESS; // Стандартная проверка глубины
+    dsdSetup.DepthFunc = D3D11_COMPARISON_LESS; // РЎС‚Р°РЅРґР°СЂС‚РЅР°СЏ РїСЂРѕРІРµСЂРєР° РіР»СѓР±РёРЅС‹
 
     hr = m_device->CreateDepthStencilState(&dsdSetup, m_depthStencilState.GetAddressOf());
     if (FAILED(hr)) { LogDebug("Failed to create Depth State"); return false; }
 
     m_context->OMSetDepthStencilState(m_depthStencilState.Get(), 1);
 
-    // Создаем сам буфер глубины
+    // РЎРѕР·РґР°РµРј СЃР°Рј Р±СѓС„РµСЂ РіР»СѓР±РёРЅС‹
     CreateDepthResources(config.Width, config.Height);
 
-    // 1. Default (Write On, Test On) - уже было, сохраним в m_dssDefault
+    // 1. Default (Write On, Test On) - СѓР¶Рµ Р±С‹Р»Рѕ, СЃРѕС…СЂР°РЅРёРј РІ m_dssDefault
     D3D11_DEPTH_STENCIL_DESC dsd = {};
     dsd.DepthEnable = TRUE;
     dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     dsd.DepthFunc = D3D11_COMPARISON_LESS;
     m_device->CreateDepthStencilState(&dsd, m_dssDefault.GetAddressOf());
 
-    // 2. No Write (Write Off, Test On/Off) - для Скайбокса или прозрачности
-    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // Не пишем в глубину
-    dsd.DepthFunc = D3D11_COMPARISON_LESS_EQUAL; // Чтобы скайбокс рисовался на фоне
+    // 2. No Write (Write Off, Test On/Off) - РґР»СЏ РЎРєР°Р№Р±РѕРєСЃР° РёР»Рё РїСЂРѕР·СЂР°С‡РЅРѕСЃС‚Рё
+    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // РќРµ РїРёС€РµРј РІ РіР»СѓР±РёРЅСѓ
+    dsd.DepthFunc = D3D11_COMPARISON_LESS_EQUAL; // Р§С‚РѕР±С‹ СЃРєР°Р№Р±РѕРєСЃ СЂРёСЃРѕРІР°Р»СЃСЏ РЅР° С„РѕРЅРµ
     m_device->CreateDepthStencilState(&dsd, m_dssNoWrite.GetAddressOf());
 
-    // Ставим дефолт
+    // РЎС‚Р°РІРёРј РґРµС„РѕР»С‚
     m_context->OMSetDepthStencilState(m_dssDefault.Get(), 0);
 
     LogDebug("[BackendDX11] Initializing Viewport...");
@@ -159,21 +159,21 @@ void BackendDX11::InitRenderStates() {
     D3D11_RASTERIZER_DESC rd = {};
     rd.FillMode = D3D11_FILL_SOLID;
     rd.DepthClipEnable = TRUE;
-    rd.FrontCounterClockwise = FALSE; // false = clockwise (стандарт DX)
+    rd.FrontCounterClockwise = FALSE; // false = clockwise (СЃС‚Р°РЅРґР°СЂС‚ DX)
     rd.MultisampleEnable = FALSE;
     rd.AntialiasedLineEnable = FALSE;
 
-    // Массив режимов соответствует enum CullMode { None=0, Front=1, Back=2 }
+    // РњР°СЃСЃРёРІ СЂРµР¶РёРјРѕРІ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ enum CullMode { None=0, Front=1, Back=2 }
     D3D11_CULL_MODE cullTranslation[3] = { D3D11_CULL_NONE, D3D11_CULL_FRONT, D3D11_CULL_BACK };
 
     for (int i = 0; i < 3; i++) {
         rd.CullMode = cullTranslation[i];
 
-        // Вариант 0: Scissor ВЫКЛ
+        // Р’Р°СЂРёР°РЅС‚ 0: Scissor Р’Р«РљР›
         rd.ScissorEnable = FALSE;
         HRESULT hr1 = m_device->CreateRasterizerState(&rd, m_rasterizerStates[i][0].GetAddressOf());
 
-        // Вариант 1: Scissor ВКЛ
+        // Р’Р°СЂРёР°РЅС‚ 1: Scissor Р’РљР›
         rd.ScissorEnable = TRUE;
         HRESULT hr2 = m_device->CreateRasterizerState(&rd, m_rasterizerStates[i][1].GetAddressOf());
 
@@ -182,16 +182,16 @@ void BackendDX11::InitRenderStates() {
         }
     }
 
-    // 1. Устанавливаем переменные кэша в то, что мы хотим видеть по умолчанию
-    m_cachedCullMode = CullMode::Back;     // По умолчанию Cull Back
-    m_cachedScissorEnabled = false;        // По умолчанию Scissor Off
+    // 1. РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїРµСЂРµРјРµРЅРЅС‹Рµ РєСЌС€Р° РІ С‚Рѕ, С‡С‚Рѕ РјС‹ С…РѕС‚РёРј РІРёРґРµС‚СЊ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
+    m_cachedCullMode = CullMode::Back;     // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ Cull Back
+    m_cachedScissorEnabled = false;        // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ Scissor Off
 
-    // 2. Явно устанавливаем этот стейт в GPU (индекс 2 = Back, индекс 0 = ScissorOff)
+    // 2. РЇРІРЅРѕ СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРј СЌС‚РѕС‚ СЃС‚РµР№С‚ РІ GPU (РёРЅРґРµРєСЃ 2 = Back, РёРЅРґРµРєСЃ 0 = ScissorOff)
     if (m_context) {
         m_context->RSSetState(m_rasterizerStates[(int)m_cachedCullMode][0].Get());
     }
 
-    // Инициализация состояний смешивания (Blend)
+    // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СЃРѕСЃС‚РѕСЏРЅРёР№ СЃРјРµС€РёРІР°РЅРёСЏ (Blend)
     D3D11_BLEND_DESC bd = {};
     bd.RenderTarget[0].BlendEnable = FALSE;
     bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
@@ -211,67 +211,73 @@ void BackendDX11::InitRenderStates() {
     m_context->OMSetBlendState(m_blendStates[0].Get(), factor, 0xFFFFFFFF);
 }
 
-void BackendDX11::SetCullMode(CullMode mode) {
-    if (m_cachedCullMode == mode) return;
+void BackendDX11::SetPipelineState(const PipelineState& newState) {
+    // 1. РџСЂРѕРІРµСЂРєР° РёР·РјРµРЅРµРЅРёР№ РґР»СЏ Rasterizer State (Cull + Scissor)
+    bool rasterizerDirty = m_firstStateSet ||
+        (newState.Cull != m_activeState.Cull) ||
+        (newState.ScissorTest != m_activeState.ScissorTest);
 
-    m_cachedCullMode = mode;
+    if (rasterizerDirty) {
+        int cullIndex = (int)newState.Cull;
+        // Р—Р°С‰РёС‚Р° РѕС‚ РІС‹С…РѕРґР° Р·Р° РјР°СЃСЃРёРІ
+        if (cullIndex < 0 || cullIndex > 2) cullIndex = 2; // Default Back
 
-    int cullIndex = (int)m_cachedCullMode;       // 0=None, 1=Front, 2=Back
-    int scissorIndex = m_cachedScissorEnabled ? 1 : 0;
+        // РРЅРґРµРєСЃ 1, РµСЃР»Рё СЃС†РёСЃСЃРѕСЂ РІРєР»СЋС‡РµРЅ, 0 - РІС‹РєР»СЋС‡РµРЅ
+        int scissorIndex = newState.ScissorTest ? 1 : 0;
 
-    if (cullIndex < 0 || cullIndex > 2) cullIndex = 2; // Default Back
-
-    if (m_rasterizerStates[cullIndex][scissorIndex]) {
-        m_context->RSSetState(m_rasterizerStates[cullIndex][scissorIndex].Get());
+        // РСЃРїРѕР»СЊР·СѓРµРј С‚РІРѕР№ СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ РјР°СЃСЃРёРІ РїСЂРµРґСЃРѕР·РґР°РЅРЅС‹С… СЃС‚РµР№С‚РѕРІ
+        if (m_rasterizerStates[cullIndex][scissorIndex]) {
+            m_context->RSSetState(m_rasterizerStates[cullIndex][scissorIndex].Get());
+        }
     }
-}
 
-void BackendDX11::SetScissorEnabled(bool enabled) {
-    if (m_cachedScissorEnabled == enabled) return;
-
-    m_cachedScissorEnabled = enabled;
-
-    int cullIndex = (int)m_cachedCullMode;
-    int scissorIndex = m_cachedScissorEnabled ? 1 : 0;
-
-    if (cullIndex < 0 || cullIndex > 2) cullIndex = 2;
-
-    if (m_rasterizerStates[cullIndex][scissorIndex]) {
-        m_context->RSSetState(m_rasterizerStates[cullIndex][scissorIndex].Get());
+    // 2. РџСЂРѕРІРµСЂРєР° РёР·РјРµРЅРµРЅРёР№ РґР»СЏ Blend State
+    if (m_firstStateSet || (newState.Blend != m_activeState.Blend)) {
+        float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        int blendIdx = (int)newState.Blend;
+        if (blendIdx >= 0 && blendIdx <= 2) {
+            m_context->OMSetBlendState(m_blendStates[blendIdx].Get(), blendFactor, 0xffffffff);
+        }
     }
+
+    // 3. РџСЂРѕРІРµСЂРєР° РёР·РјРµРЅРµРЅРёР№ РґР»СЏ Depth State
+    if (m_firstStateSet ||
+        (newState.DepthFunc != m_activeState.DepthFunc) ||
+        (newState.DepthWrite != m_activeState.DepthWrite))
+    {
+        // РСЃРїРѕР»СЊР·СѓРµРј С‚РІРѕСЋ СЃСѓС‰РµСЃС‚РІСѓСЋС‰СѓСЋ С„СѓРЅРєС†РёСЋ GetDepthState СЃ map'РѕРј
+        ID3D11DepthStencilState* dsState = GetDepthState(newState.DepthFunc, newState.DepthWrite);
+        if (dsState) {
+            // stensilRef = 1 (РґРµС„РѕР»С‚)
+            m_context->OMSetDepthStencilState(dsState, 1);
+        }
+    }
+
+    // РћР±РЅРѕРІР»СЏРµРј РєСЌС€
+    m_activeState = newState;
+    m_firstStateSet = false;
 }
 
 void BackendDX11::SetScissorRect(int x, int y, int width, int height) {
-    // Scissor rect дешевая операция, можно не кешировать или кешировать отдельно RECT
     D3D11_RECT rects[1];
     rects[0].left = x;
     rects[0].top = y;
     rects[0].right = x + width;
     rects[0].bottom = y + height;
-
     m_context->RSSetScissorRects(1, rects);
 }
 
-void BackendDX11::SetBlendMode(BlendMode mode) {
-    if (m_cachedBlendMode == mode) return;
-
-    m_cachedBlendMode = mode;
-
-    float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    m_context->OMSetBlendState(m_blendStates[(int)mode].Get(), blendFactor, 0xffffffff);
-}
-
 ID3D11DepthStencilState* BackendDX11::GetDepthState(CompareFunc func, bool write) {
-    // Генерируем уникальный ключ для map
-    // func (3 бита) | write (1 бит)
+    // Р“РµРЅРµСЂРёСЂСѓРµРј СѓРЅРёРєР°Р»СЊРЅС‹Р№ РєР»СЋС‡ РґР»СЏ map
+    // func (3 Р±РёС‚Р°) | write (1 Р±РёС‚)
     uint32_t key = ((uint32_t)func << 1) | (write ? 1 : 0);
 
-    // Если уже есть - возвращаем
+    // Р•СЃР»Рё СѓР¶Рµ РµСЃС‚СЊ - РІРѕР·РІСЂР°С‰Р°РµРј
     if (m_depthStates.find(key) != m_depthStates.end()) {
         return m_depthStates[key].Get();
     }
 
-    // Если нет - создаем
+    // Р•СЃР»Рё РЅРµС‚ - СЃРѕР·РґР°РµРј
     D3D11_DEPTH_STENCIL_DESC dsd = {};
     dsd.DepthEnable = TRUE;
     dsd.DepthWriteMask = write ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
@@ -288,24 +294,11 @@ ID3D11DepthStencilState* BackendDX11::GetDepthState(CompareFunc func, bool write
     default:                        dsd.DepthFunc = D3D11_COMPARISON_LESS; break;
     }
 
-    // Stencil выключаем для простоты
+    // Stencil РІС‹РєР»СЋС‡Р°РµРј РґР»СЏ РїСЂРѕСЃС‚РѕС‚С‹
     dsd.StencilEnable = FALSE;
 
     m_device->CreateDepthStencilState(&dsd, m_depthStates[key].GetAddressOf());
     return m_depthStates[key].Get();
-}
-
-void BackendDX11::SetDepthState(CompareFunc func, bool writeEnabled) {
-    // Проверка кеша
-    if (m_cachedDepthFunc == func && m_cachedDepthWrite == writeEnabled) return;
-
-    m_cachedDepthFunc = func;
-    m_cachedDepthWrite = writeEnabled;
-
-    ID3D11DepthStencilState* state = GetDepthState(func, writeEnabled);
-    if (state) {
-        m_context->OMSetDepthStencilState(state, 1); // 1 - stencil ref
-    }
 }
 
 void BackendDX11::CreateDepthResources(int width, int height) {
@@ -343,7 +336,7 @@ void BackendDX11::Resize(int width, int height) {
 
     m_depthCache.clear();
 
-    CreateDepthResources(width, height); // Пересоздаем глубину
+    CreateDepthResources(width, height); // РџРµСЂРµСЃРѕР·РґР°РµРј РіР»СѓР±РёРЅСѓ
 
     D3D11_VIEWPORT vp = {};
     vp.Width = (float)width;
@@ -374,7 +367,7 @@ void* BackendDX11::CreateTextureResource(int width, int height, int format, cons
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    // Определяем формат и размер пикселя для загрузки данных
+    // РћРїСЂРµРґРµР»СЏРµРј С„РѕСЂРјР°С‚ Рё СЂР°Р·РјРµСЂ РїРёРєСЃРµР»СЏ РґР»СЏ Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…
     int bytesPerPixel = 4;
     switch ((TextureFormat)format) {
     case TextureFormat::RGBA16F:
@@ -400,7 +393,7 @@ void* BackendDX11::CreateTextureResource(int width, int height, int format, cons
 
     if (initialData) {
         initData.pSysMem = initialData;
-        initData.SysMemPitch = width * bytesPerPixel; // Шаг строки
+        initData.SysMemPitch = width * bytesPerPixel; // РЁР°Рі СЃС‚СЂРѕРєРё
         pInitData = &initData;
     }
 
@@ -429,21 +422,21 @@ void* BackendDX11::CreateTextureCubeResource(int width, int height, int format, 
     desc.Width = width;
     desc.Height = height;
     desc.MipLevels = 1;
-    desc.ArraySize = 6; // ВАЖНО: 6 граней
-    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // Пока хардкодим RGBA8
+    desc.ArraySize = 6; // Р’РђР–РќРћ: 6 РіСЂР°РЅРµР№
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // РџРѕРєР° С…Р°СЂРґРєРѕРґРёРј RGBA8
     desc.SampleDesc.Count = 1;
     desc.SampleDesc.Quality = 0;
-    desc.Usage = D3D11_USAGE_DEFAULT; // Изменим на IMMUTABLE, так как скайбокс статичен
+    desc.Usage = D3D11_USAGE_DEFAULT; // РР·РјРµРЅРёРј РЅР° IMMUTABLE, С‚Р°Рє РєР°Рє СЃРєР°Р№Р±РѕРєСЃ СЃС‚Р°С‚РёС‡РµРЅ
     desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     desc.CPUAccessFlags = 0;
-    desc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE; // ВАЖНО: Говорим, что это КУБ
+    desc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE; // Р’РђР–РќРћ: Р“РѕРІРѕСЂРёРј, С‡С‚Рѕ СЌС‚Рѕ РљРЈР‘
 
-    // Подготовка данных для 6 граней
+    // РџРѕРґРіРѕС‚РѕРІРєР° РґР°РЅРЅС‹С… РґР»СЏ 6 РіСЂР°РЅРµР№
     D3D11_SUBRESOURCE_DATA subData[6];
     if (initialData) {
         for (int i = 0; i < 6; i++) {
             subData[i].pSysMem = initialData[i];
-            subData[i].SysMemPitch = width * 4; // 4 байта на пиксель (RGBA8)
+            subData[i].SysMemPitch = width * 4; // 4 Р±Р°Р№С‚Р° РЅР° РїРёРєСЃРµР»СЊ (RGBA8)
             subData[i].SysMemSlicePitch = 0;
         }
     }
@@ -453,10 +446,10 @@ void* BackendDX11::CreateTextureCubeResource(int width, int height, int format, 
         return nullptr;
     }
 
-    // Создание SRV
+    // РЎРѕР·РґР°РЅРёРµ SRV
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = desc.Format;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE; // ВАЖНО: Вид как куб
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE; // Р’РђР–РќРћ: Р’РёРґ РєР°Рє РєСѓР±
     srvDesc.TextureCube.MostDetailedMip = 0;
     srvDesc.TextureCube.MipLevels = 1;
 
@@ -474,13 +467,13 @@ void BackendDX11::CopyTexture(void* dstHandle, void* srcHandle) {
     auto* dst = (DX11TextureWrapper*)dstHandle;
     auto* src = (DX11TextureWrapper*)srcHandle;
 
-    // Копирует все содержимое (размеры должны совпадать, иначе DX выдаст ошибку в debug layer)
+    // РљРѕРїРёСЂСѓРµС‚ РІСЃРµ СЃРѕРґРµСЂР¶РёРјРѕРµ (СЂР°Р·РјРµСЂС‹ РґРѕР»Р¶РЅС‹ СЃРѕРІРїР°РґР°С‚СЊ, РёРЅР°С‡Рµ DX РІС‹РґР°СЃС‚ РѕС€РёР±РєСѓ РІ debug layer)
     m_context->CopyResource(dst->Texture.Get(), src->Texture.Get());
 }
 
 void BackendDX11::SetRenderTarget(void* target1, void* target2,
     void* target3, void* target4) {
-    // Собираем все ненулевые цели
+    // РЎРѕР±РёСЂР°РµРј РІСЃРµ РЅРµРЅСѓР»РµРІС‹Рµ С†РµР»Рё
     ID3D11RenderTargetView* rtvs[4] = { nullptr, nullptr, nullptr, nullptr };
     int count = 0;
 
@@ -501,7 +494,7 @@ void BackendDX11::SetRenderTarget(void* target1, void* target2,
     SetRenderTargetsInternal(rtvs, count);
 }
 
-// Хелпер для очистки конкретного RTV
+// РҐРµР»РїРµСЂ РґР»СЏ РѕС‡РёСЃС‚РєРё РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ RTV
 void BackendDX11::ClearRTV(ID3D11RenderTargetView* rtv, float r, float g, float b, float a) {
     if (rtv) {
         float color[4] = { r, g, b, a };
@@ -514,19 +507,19 @@ inline uint64_t PackSize(int w, int h) {
 }
 
 ID3D11DepthStencilView* BackendDX11::GetDepthStencilForSize(int width, int height) {
-    // 1. Проверяем, может это основной экран?
+    // 1. РџСЂРѕРІРµСЂСЏРµРј, РјРѕР¶РµС‚ СЌС‚Рѕ РѕСЃРЅРѕРІРЅРѕР№ СЌРєСЂР°РЅ?
     if (width == m_screenWidth && height == m_screenHeight) {
-        return m_depthStencilView.Get(); // Возвращаем главный буфер окна
+        return m_depthStencilView.Get(); // Р’РѕР·РІСЂР°С‰Р°РµРј РіР»Р°РІРЅС‹Р№ Р±СѓС„РµСЂ РѕРєРЅР°
     }
 
-    // 2. Ищем в кэше
+    // 2. РС‰РµРј РІ РєСЌС€Рµ
     uint64_t key = PackSize(width, height);
     auto it = m_depthCache.find(key);
     if (it != m_depthCache.end()) {
         return it->second.DSV.Get();
     }
 
-    // 3. Не нашли - создаем новый
+    // 3. РќРµ РЅР°С€Р»Рё - СЃРѕР·РґР°РµРј РЅРѕРІС‹Р№
     LogDebug("[BackendDX11] Creating new auto-depth buffer for resolution %dx%d", width, height);
 
     DepthBufferCacheItem item;
@@ -536,7 +529,7 @@ ID3D11DepthStencilView* BackendDX11::GetDepthStencilForSize(int width, int heigh
     descDepth.Height = height;
     descDepth.MipLevels = 1;
     descDepth.ArraySize = 1;
-    // D24_S8 - самый совместимый формат
+    // D24_S8 - СЃР°РјС‹Р№ СЃРѕРІРјРµСЃС‚РёРјС‹Р№ С„РѕСЂРјР°С‚
     descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     descDepth.SampleDesc.Count = 1;
     descDepth.Usage = D3D11_USAGE_DEFAULT;
@@ -548,7 +541,7 @@ ID3D11DepthStencilView* BackendDX11::GetDepthStencilForSize(int width, int heigh
     hr = m_device->CreateDepthStencilView(item.Texture.Get(), nullptr, item.DSV.GetAddressOf());
     if (FAILED(hr)) return nullptr;
 
-    // Сохраняем в кэш
+    // РЎРѕС…СЂР°РЅСЏРµРј РІ РєСЌС€
     m_depthCache[key] = item;
     return item.DSV.Get();
 }
@@ -566,7 +559,7 @@ void BackendDX11::SetRenderTargetsInternal(ID3D11RenderTargetView* rtvs[], int c
         rtvs[0]->GetResource(&res);
         D3D11_TEXTURE2D_DESC desc;
         ((ID3D11Texture2D*)res)->GetDesc(&desc);
-        res->Release(); // Важно релизить COM объект после Get
+        res->Release(); // Р’Р°Р¶РЅРѕ СЂРµР»РёР·РёС‚СЊ COM РѕР±СЉРµРєС‚ РїРѕСЃР»Рµ Get
 
         targetW = desc.Width;
         targetH = desc.Height;
@@ -580,7 +573,7 @@ void BackendDX11::SetRenderTargetsInternal(ID3D11RenderTargetView* rtvs[], int c
         }
     }
     else {
-        dsvToBind = m_depthStencilView.Get(); // Главный Z-буфер
+        dsvToBind = m_depthStencilView.Get(); // Р“Р»Р°РІРЅС‹Р№ Z-Р±СѓС„РµСЂ
         ID3D11RenderTargetView* bb = m_backBufferRTV.Get();
 
         m_context->OMSetRenderTargets(1, &bb, dsvToBind);
@@ -636,21 +629,21 @@ void* BackendDX11::CreateTexture3DResource(int width, int height, int depth, int
     D3D11_TEXTURE3D_DESC desc = {};
     desc.Width = width; desc.Height = height; desc.Depth = depth;
     desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // Для теста градиента используем float4
+    desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // Р”Р»СЏ С‚РµСЃС‚Р° РіСЂР°РґРёРµРЅС‚Р° РёСЃРїРѕР»СЊР·СѓРµРј float4
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-    // Подготовка данных
+    // РџРѕРґРіРѕС‚РѕРІРєР° РґР°РЅРЅС‹С…
     D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = initialData;
-    initData.SysMemPitch = width * sizeof(float) * 4; // Строка
-    initData.SysMemSlicePitch = width * height * sizeof(float) * 4; // Слой
+    initData.SysMemPitch = width * sizeof(float) * 4; // РЎС‚СЂРѕРєР°
+    initData.SysMemSlicePitch = width * height * sizeof(float) * 4; // РЎР»РѕР№
 
     if (FAILED(m_device->CreateTexture3D(&desc, &initData, wrapper->Texture3D.GetAddressOf()))) {
         delete wrapper; return nullptr;
     }
 
-    // Создаем SRV
+    // РЎРѕР·РґР°РµРј SRV
     if (FAILED(m_device->CreateShaderResourceView(wrapper->Texture3D.Get(), nullptr, wrapper->SRV.GetAddressOf()))) {
         delete wrapper; return nullptr;
     }
@@ -729,7 +722,7 @@ DX11ReflectionData BackendDX11::ReflectShader(ID3DBlob* blob) {
     D3D11_SHADER_DESC shaderDesc;
     reflector->GetDesc(&shaderDesc);
 
-    // 1. Сначала собираем информацию о слотах (Bind Points)
+    // 1. РЎРЅР°С‡Р°Р»Р° СЃРѕР±РёСЂР°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЃР»РѕС‚Р°С… (Bind Points)
     std::map<std::string, UINT> cbSlots;
 
     for (UINT i = 0; i < shaderDesc.BoundResources; ++i) {
@@ -748,7 +741,7 @@ DX11ReflectionData BackendDX11::ReflectShader(ID3DBlob* blob) {
         }
     }
 
-    // 2. Теперь читаем содержимое буферов и создаем наши структуры
+    // 2. РўРµРїРµСЂСЊ С‡РёС‚Р°РµРј СЃРѕРґРµСЂР¶РёРјРѕРµ Р±СѓС„РµСЂРѕРІ Рё СЃРѕР·РґР°РµРј РЅР°С€Рё СЃС‚СЂСѓРєС‚СѓСЂС‹
     for (UINT i = 0; i < shaderDesc.ConstantBuffers; ++i) {
         ID3D11ShaderReflectionConstantBuffer* cb = reflector->GetConstantBufferByIndex(i);
         D3D11_SHADER_BUFFER_DESC bufferDesc;
@@ -758,15 +751,15 @@ DX11ReflectionData BackendDX11::ReflectShader(ID3DBlob* blob) {
         myCB.Name = bufferDesc.Name;
         myCB.Size = bufferDesc.Size;
 
-        // Находим слот, который мы сохранили на шаге 1
+        // РќР°С…РѕРґРёРј СЃР»РѕС‚, РєРѕС‚РѕСЂС‹Р№ РјС‹ СЃРѕС…СЂР°РЅРёР»Рё РЅР° С€Р°РіРµ 1
         if (cbSlots.find(myCB.Name) != cbSlots.end()) {
             myCB.Slot = cbSlots[myCB.Name];
         }
         else {
-            myCB.Slot = i; // Fallback, если что-то пошло не так
+            myCB.Slot = i; // Fallback, РµСЃР»Рё С‡С‚Рѕ-С‚Рѕ РїРѕС€Р»Рѕ РЅРµ С‚Р°Рє
         }
 
-        // Читаем переменные внутри этого буфера
+        // Р§РёС‚Р°РµРј РїРµСЂРµРјРµРЅРЅС‹Рµ РІРЅСѓС‚СЂРё СЌС‚РѕРіРѕ Р±СѓС„РµСЂР°
         for (UINT j = 0; j < bufferDesc.Variables; ++j) {
             ID3D11ShaderReflectionVariable* var = cb->GetVariableByIndex(j);
             D3D11_SHADER_VARIABLE_DESC varDesc;
@@ -800,7 +793,7 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
         m_device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, sw.VertexShader.GetAddressOf());
         sw.ReflectionVS = ReflectShader(vsBlob);
 
-        // Создаем буферы для VS
+        // РЎРѕР·РґР°РµРј Р±СѓС„РµСЂС‹ РґР»СЏ VS
         for (auto& cb : sw.ReflectionVS.Buffers) {
             D3D11_BUFFER_DESC bd = {};
             bd.ByteWidth = (cb.Size + 15) / 16 * 16;
@@ -839,36 +832,36 @@ void BackendDX11::PrepareShaderPass(const ShaderPass& pass) {
 }
 
 void BackendDX11::SetShaderPass(const ShaderPass& pass) {
-    // 1. Генерируем ключ для поиска в кэше
+    // 1. Р“РµРЅРµСЂРёСЂСѓРµРј РєР»СЋС‡ РґР»СЏ РїРѕРёСЃРєР° РІ РєСЌС€Рµ
     std::string key = pass.VertexShaderPath + ":" + pass.VertexShaderEntryPoint + "|" +
         pass.PixelShaderPath + ":" + pass.PixelShaderEntryPoint;
 
-    // Если шейдер не скомпилирован или не найден — выходим
+    // Р•СЃР»Рё С€РµР№РґРµСЂ РЅРµ СЃРєРѕРјРїРёР»РёСЂРѕРІР°РЅ РёР»Рё РЅРµ РЅР°Р№РґРµРЅ вЂ” РІС‹С…РѕРґРёРј
     if (m_shaderCache.find(key) == m_shaderCache.end()) return;
 
-    // Устанавливаем активный шейдер
+    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р°РєС‚РёРІРЅС‹Р№ С€РµР№РґРµСЂ
     m_activeShader = &m_shaderCache[key];
 
-    // 2. Устанавливаем пайплайн (InputLayout, VS, PS)
+    // 2. РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїР°Р№РїР»Р°Р№РЅ (InputLayout, VS, PS)
     m_context->IASetInputLayout(m_activeShader->InputLayout.Get());
     m_context->VSSetShader(m_activeShader->VertexShader.Get(), nullptr, 0);
     m_context->PSSetShader(m_activeShader->PixelShader.Get(), nullptr, 0);
 
-    // 3. Привязка 2D Текстур по имени (используя данные рефлексии)
+    // 3. РџСЂРёРІСЏР·РєР° 2D РўРµРєСЃС‚СѓСЂ РїРѕ РёРјРµРЅРё (РёСЃРїРѕР»СЊР·СѓСЏ РґР°РЅРЅС‹Рµ СЂРµС„Р»РµРєСЃРёРё)
     for (const auto& texPair : pass.GetTextures()) {
         const std::string& name = texPair.first;
         const Texture* texturePtr = texPair.second;
 
-        // Получаем внутренний хендл
+        // РџРѕР»СѓС‡Р°РµРј РІРЅСѓС‚СЂРµРЅРЅРёР№ С…РµРЅРґР»
         auto* tex = (DX11TextureWrapper*)texturePtr->GetHandle();
 
         if (tex) {
-            // Если текстура используется в Pixel Shader
+            // Р•СЃР»Рё С‚РµРєСЃС‚СѓСЂР° РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІ Pixel Shader
             if (m_activeShader->ReflectionPS.TextureSlots.count(name)) {
                 UINT slot = m_activeShader->ReflectionPS.TextureSlots[name];
                 m_context->PSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
             }
-            // Если текстура используется в Vertex Shader
+            // Р•СЃР»Рё С‚РµРєСЃС‚СѓСЂР° РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІ Vertex Shader
             if (m_activeShader->ReflectionVS.TextureSlots.count(name)) {
                 UINT slot = m_activeShader->ReflectionVS.TextureSlots[name];
                 m_context->VSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
@@ -876,20 +869,20 @@ void BackendDX11::SetShaderPass(const ShaderPass& pass) {
         }
     }
 
-    // 4. Привязка 3D Текстур по имени
+    // 4. РџСЂРёРІСЏР·РєР° 3D РўРµРєСЃС‚СѓСЂ РїРѕ РёРјРµРЅРё
     for (const auto& tex3DPair : pass.GetTextures3D()) {
         const std::string& name = tex3DPair.first;
         const Texture3D* texturePtr = tex3DPair.second;
         auto* tex = (DX11TextureWrapper*)texturePtr->GetHandle();
 
         if (tex && tex->SRV) {
-            // Проверка для Pixel Shader (PS)
+            // РџСЂРѕРІРµСЂРєР° РґР»СЏ Pixel Shader (PS)
             if (m_activeShader->ReflectionPS.TextureSlots.count(name)) {
                 UINT slot = m_activeShader->ReflectionPS.TextureSlots[name];
                 m_context->PSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
             }
 
-            // Проверка для Vertex Shader (VS)
+            // РџСЂРѕРІРµСЂРєР° РґР»СЏ Vertex Shader (VS)
             if (m_activeShader->ReflectionVS.TextureSlots.count(name)) {
                 UINT slot = m_activeShader->ReflectionVS.TextureSlots[name];
                 m_context->VSSetShaderResources(slot, 1, tex->SRV.GetAddressOf());
@@ -897,7 +890,7 @@ void BackendDX11::SetShaderPass(const ShaderPass& pass) {
         }
     }
 
-    // 5. Привязка Семплеров по имени
+    // 5. РџСЂРёРІСЏР·РєР° РЎРµРјРїР»РµСЂРѕРІ РїРѕ РёРјРµРЅРё
     for (const auto& sampPair : pass.GetSamplers()) {
         const std::string& name = sampPair.first;
         const Sampler* samplerPtr = sampPair.second;
@@ -917,7 +910,7 @@ void BackendDX11::SetShaderPass(const ShaderPass& pass) {
         }
     }
 
-    // 6. Привязка TextureCube (Cubemaps)
+    // 6. РџСЂРёРІСЏР·РєР° TextureCube (Cubemaps)
     for (const auto& texCubePair : pass.GetTexturesCube()) {
         const std::string& name = texCubePair.first;
         const TextureCube* texturePtr = texCubePair.second;
@@ -951,40 +944,40 @@ void BackendDX11::UploadConstants(DX11ReflectionData& reflectionData, ShaderType
 
         bool isDirty = false;
 
-        // 1. Проверяем, обновил ли пользователь ВЕСЬ буфер целиком по имени
-        // (Например: UpdateConstantRaw("SSAOConfigBuffer", &data, size))
+        // 1. РџСЂРѕРІРµСЂСЏРµРј, РѕР±РЅРѕРІРёР» Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р’Р•РЎР¬ Р±СѓС„РµСЂ С†РµР»РёРєРѕРј РїРѕ РёРјРµРЅРё
+        // (РќР°РїСЂРёРјРµСЂ: UpdateConstantRaw("SSAOConfigBuffer", &data, size))
         if (m_cpuConstantsStorage.count(cb.Name)) {
             const auto& stored = m_cpuConstantsStorage[cb.Name];
             if (stored.Data.size() <= cb.ShadowData.size()) {
                 memcpy(cb.ShadowData.data(), stored.Data.data(), stored.Data.size());
                 isDirty = true;
-                // Важно: Мы не удаляем данные из map, так как они могут понадобиться в следующем кадре,
-                // но можно оптимизировать флагами "dirty".
+                // Р’Р°Р¶РЅРѕ: РњС‹ РЅРµ СѓРґР°Р»СЏРµРј РґР°РЅРЅС‹Рµ РёР· map, С‚Р°Рє РєР°Рє РѕРЅРё РјРѕРіСѓС‚ РїРѕРЅР°РґРѕР±РёС‚СЊСЃСЏ РІ СЃР»РµРґСѓСЋС‰РµРј РєР°РґСЂРµ,
+                // РЅРѕ РјРѕР¶РЅРѕ РѕРїС‚РёРјРёР·РёСЂРѕРІР°С‚СЊ С„Р»Р°РіР°РјРё "dirty".
             }
         }
 
-        // 2. Проверяем отдельные переменные внутри буфера
-        // (Например: SetConstant("World", ...))
+        // 2. РџСЂРѕРІРµСЂСЏРµРј РѕС‚РґРµР»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ РІРЅСѓС‚СЂРё Р±СѓС„РµСЂР°
+        // (РќР°РїСЂРёРјРµСЂ: SetConstant("World", ...))
         for (const auto& var : cb.Variables) {
             if (m_cpuConstantsStorage.count(var.Name)) {
                 const auto& stored = m_cpuConstantsStorage[var.Name];
 
-                // Проверка выхода за границы
+                // РџСЂРѕРІРµСЂРєР° РІС‹С…РѕРґР° Р·Р° РіСЂР°РЅРёС†С‹
                 if (var.Offset + var.Size <= cb.ShadowData.size() &&
                     stored.Data.size() >= var.Size)
                 {
-                    // Копируем в теневой буфер
+                    // РљРѕРїРёСЂСѓРµРј РІ С‚РµРЅРµРІРѕР№ Р±СѓС„РµСЂ
                     memcpy(cb.ShadowData.data() + var.Offset, stored.Data.data(), var.Size);
                     isDirty = true;
                 }
             }
         }
 
-        // 3. Заливаем в GPU (Всегда заливаем всё, Map_DISCARD требует этого!)
-        // Даже если isDirty == false, данные могли быть нужны с прошлого кадра, 
-        // но DX11 требует, чтобы мы обновляли Dynamic буферы или не трогали их. 
-        // В нашем случае, так как мы используем одну карту storage на все шейдеры,
-        // лучше обновлять.
+        // 3. Р—Р°Р»РёРІР°РµРј РІ GPU (Р’СЃРµРіРґР° Р·Р°Р»РёРІР°РµРј РІСЃС‘, Map_DISCARD С‚СЂРµР±СѓРµС‚ СЌС‚РѕРіРѕ!)
+        // Р”Р°Р¶Рµ РµСЃР»Рё isDirty == false, РґР°РЅРЅС‹Рµ РјРѕРіР»Рё Р±С‹С‚СЊ РЅСѓР¶РЅС‹ СЃ РїСЂРѕС€Р»РѕРіРѕ РєР°РґСЂР°, 
+        // РЅРѕ DX11 С‚СЂРµР±СѓРµС‚, С‡С‚РѕР±С‹ РјС‹ РѕР±РЅРѕРІР»СЏР»Рё Dynamic Р±СѓС„РµСЂС‹ РёР»Рё РЅРµ С‚СЂРѕРіР°Р»Рё РёС…. 
+        // Р’ РЅР°С€РµРј СЃР»СѓС‡Р°Рµ, С‚Р°Рє РєР°Рє РјС‹ РёСЃРїРѕР»СЊР·СѓРµРј РѕРґРЅСѓ РєР°СЂС‚Сѓ storage РЅР° РІСЃРµ С€РµР№РґРµСЂС‹,
+        // Р»СѓС‡С€Рµ РѕР±РЅРѕРІР»СЏС‚СЊ.
 
         D3D11_MAPPED_SUBRESOURCE map;
         if (SUCCEEDED(m_context->Map(cb.HardwareBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
@@ -992,7 +985,7 @@ void BackendDX11::UploadConstants(DX11ReflectionData& reflectionData, ShaderType
             m_context->Unmap(cb.HardwareBuffer.Get(), 0);
         }
 
-        // 4. Биндим буфер
+        // 4. Р‘РёРЅРґРёРј Р±СѓС„РµСЂ
         if (SType == ShaderType::Vertex) {
             m_context->VSSetConstantBuffers(cb.Slot, 1, cb.HardwareBuffer.GetAddressOf());
         }
@@ -1029,16 +1022,16 @@ void BackendDX11::CreateInputLayoutFromShader(const std::vector<char>& shaderByt
         D3D11_INPUT_ELEMENT_DESC element = {};
         element.SemanticName = paramDesc.SemanticName;
         element.SemanticIndex = paramDesc.SemanticIndex;
-        element.Format = DXGI_FORMAT_UNKNOWN; // Будет определено ниже по маске
+        element.Format = DXGI_FORMAT_UNKNOWN; // Р‘СѓРґРµС‚ РѕРїСЂРµРґРµР»РµРЅРѕ РЅРёР¶Рµ РїРѕ РјР°СЃРєРµ
         element.AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
 
-        // --- ЛОГИКА ИНСТАНСИНГА ---
+        // --- Р›РћР“РРљРђ РРќРЎРўРђРќРЎРРќР“Рђ ---
         std::string semanticName = paramDesc.SemanticName;
-        // Если семантика начинается с "INSTANCE_", считаем это данными инстанса (Slot 1)
+        // Р•СЃР»Рё СЃРµРјР°РЅС‚РёРєР° РЅР°С‡РёРЅР°РµС‚СЃСЏ СЃ "INSTANCE_", СЃС‡РёС‚Р°РµРј СЌС‚Рѕ РґР°РЅРЅС‹РјРё РёРЅСЃС‚Р°РЅСЃР° (Slot 1)
         if (semanticName.rfind("INSTANCE_", 0) == 0) {
             element.InputSlot = 1; // Instance Buffer Slot
             element.InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
-            element.InstanceDataStepRate = 1; // 1 шаг на 1 инстанс
+            element.InstanceDataStepRate = 1; // 1 С€Р°Рі РЅР° 1 РёРЅСЃС‚Р°РЅСЃ
         }
         else {
             element.InputSlot = 0; // Vertex Buffer Slot
@@ -1046,7 +1039,7 @@ void BackendDX11::CreateInputLayoutFromShader(const std::vector<char>& shaderByt
             element.InstanceDataStepRate = 0;
         }
 
-        // Определение формата (упрощенное, но рабочее для float)
+        // РћРїСЂРµРґРµР»РµРЅРёРµ С„РѕСЂРјР°С‚Р° (СѓРїСЂРѕС‰РµРЅРЅРѕРµ, РЅРѕ СЂР°Р±РѕС‡РµРµ РґР»СЏ float)
         if (paramDesc.Mask == 1) element.Format = DXGI_FORMAT_R32_FLOAT;
         else if (paramDesc.Mask <= 3) element.Format = DXGI_FORMAT_R32G32_FLOAT;
         else if (paramDesc.Mask <= 7) element.Format = DXGI_FORMAT_R32G32B32_FLOAT;
@@ -1073,7 +1066,7 @@ void BackendDX11::DrawFullScreenQuad() {
 
     m_context->DrawIndexed(6, 0, 0);
 
-    // Очистка SRV (чтобы можно было писать в эти текстуры на след. кадре)
+    // РћС‡РёСЃС‚РєР° SRV (С‡С‚РѕР±С‹ РјРѕР¶РЅРѕ Р±С‹Р»Рѕ РїРёСЃР°С‚СЊ РІ СЌС‚Рё С‚РµРєСЃС‚СѓСЂС‹ РЅР° СЃР»РµРґ. РєР°РґСЂРµ)
     ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
     m_context->PSSetShaderResources(0, 8, nullSRVs);
 }
@@ -1123,43 +1116,43 @@ void* BackendDX11::CreateInstanceBuffer(const void* data, size_t size, int strid
 }
 
 void BackendDX11::DrawMesh(void* vbHandle, void* ibHandle, int indexCount) {
-    // Базовые проверки
+    // Р‘Р°Р·РѕРІС‹Рµ РїСЂРѕРІРµСЂРєРё
     if (!m_activeShader || !vbHandle || !ibHandle) return;
 
-    // Приведение типов к нашим внутренним оберткам
+    // РџСЂРёРІРµРґРµРЅРёРµ С‚РёРїРѕРІ Рє РЅР°С€РёРј РІРЅСѓС‚СЂРµРЅРЅРёРј РѕР±РµСЂС‚РєР°Рј
     auto* vb = (DX11BufferWrapper*)vbHandle;
     auto* ib = (DX11BufferWrapper*)ibHandle;
 
-    // 1. Обновляем и биндим константы для Vertex Shader (поддержка мульти-буферов)
+    // 1. РћР±РЅРѕРІР»СЏРµРј Рё Р±РёРЅРґРёРј РєРѕРЅСЃС‚Р°РЅС‚С‹ РґР»СЏ Vertex Shader (РїРѕРґРґРµСЂР¶РєР° РјСѓР»СЊС‚Рё-Р±СѓС„РµСЂРѕРІ)
     UploadConstants(m_activeShader->ReflectionVS, ShaderType::Vertex);
 
-    // 2. Обновляем и биндим константы для Pixel Shader
+    // 2. РћР±РЅРѕРІР»СЏРµРј Рё Р±РёРЅРґРёРј РєРѕРЅСЃС‚Р°РЅС‚С‹ РґР»СЏ Pixel Shader
     UploadConstants(m_activeShader->ReflectionPS, ShaderType::Pixel);
 
     // -----------------------------------------------------------
-    // 3. Установка геометрии (Input Assembler)
+    // 3. РЈСЃС‚Р°РЅРѕРІРєР° РіРµРѕРјРµС‚СЂРёРё (Input Assembler)
     // -----------------------------------------------------------
-    UINT stride = vb->Stride; // Размер одной вершины (шаг)
+    UINT stride = vb->Stride; // Р Р°Р·РјРµСЂ РѕРґРЅРѕР№ РІРµСЂС€РёРЅС‹ (С€Р°Рі)
     UINT offset = 0;
 
-    // Устанавливаем Вершинный Буфер
+    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р’РµСЂС€РёРЅРЅС‹Р№ Р‘СѓС„РµСЂ
     m_context->IASetVertexBuffers(0, 1, vb->Buffer.GetAddressOf(), &stride, &offset);
 
-    // Устанавливаем Индексный Буфер (Формат R32_UINT означает unsigned int)
+    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј РРЅРґРµРєСЃРЅС‹Р№ Р‘СѓС„РµСЂ (Р¤РѕСЂРјР°С‚ R32_UINT РѕР·РЅР°С‡Р°РµС‚ unsigned int)
     m_context->IASetIndexBuffer(ib->Buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 
-    // Указываем тип примитивов (список треугольников)
+    // РЈРєР°Р·С‹РІР°РµРј С‚РёРї РїСЂРёРјРёС‚РёРІРѕРІ (СЃРїРёСЃРѕРє С‚СЂРµСѓРіРѕР»СЊРЅРёРєРѕРІ)
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // -----------------------------------------------------------
-    // 4. Отрисовка
+    // 4. РћС‚СЂРёСЃРѕРІРєР°
     // -----------------------------------------------------------
     m_context->DrawIndexed(indexCount, 0, 0);
 
     // -----------------------------------------------------------
-    // 5. Очистка ресурсов
+    // 5. РћС‡РёСЃС‚РєР° СЂРµСЃСѓСЂСЃРѕРІ
     // -----------------------------------------------------------
-    // Важно сбросить SRV, чтобы избежать конфликтов чтения/записи в следующих проходах
+    // Р’Р°Р¶РЅРѕ СЃР±СЂРѕСЃРёС‚СЊ SRV, С‡С‚РѕР±С‹ РёР·Р±РµР¶Р°С‚СЊ РєРѕРЅС„Р»РёРєС‚РѕРІ С‡С‚РµРЅРёСЏ/Р·Р°РїРёСЃРё РІ СЃР»РµРґСѓСЋС‰РёС… РїСЂРѕС…РѕРґР°С…
     ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
     m_context->PSSetShaderResources(0, 8, nullSRVs);
 }
@@ -1171,26 +1164,26 @@ void BackendDX11::DrawMeshInstanced(void* vbHandle, void* ibHandle, int indexCou
     auto* ib = (DX11BufferWrapper*)ibHandle;
     auto* instBuffer = (DX11BufferWrapper*)instHandle;
 
-    // 1. Константы
+    // 1. РљРѕРЅСЃС‚Р°РЅС‚С‹
     UploadConstants(m_activeShader->ReflectionVS, ShaderType::Vertex);
     UploadConstants(m_activeShader->ReflectionPS, ShaderType::Pixel);
 
-    // 2. Установка буферов
-    // Slot 0: Геометрия (Mesh)
-    // Slot 1: Инстанс данные (Transform matrix, color, id etc)
+    // 2. РЈСЃС‚Р°РЅРѕРІРєР° Р±СѓС„РµСЂРѕРІ
+    // Slot 0: Р“РµРѕРјРµС‚СЂРёСЏ (Mesh)
+    // Slot 1: РРЅСЃС‚Р°РЅСЃ РґР°РЅРЅС‹Рµ (Transform matrix, color, id etc)
     ID3D11Buffer* vbs[] = { vb->Buffer.Get(), instBuffer->Buffer.Get() };
     UINT strides[] = { vb->Stride, (UINT)instanceStride };
     UINT offsets[] = { 0, 0 };
 
-    // Ставим сразу 2 буфера
+    // РЎС‚Р°РІРёРј СЃСЂР°Р·Сѓ 2 Р±СѓС„РµСЂР°
     m_context->IASetVertexBuffers(0, 2, vbs, strides, offsets);
     m_context->IASetIndexBuffer(ib->Buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // 3. Рисуем
+    // 3. Р РёСЃСѓРµРј
     m_context->DrawIndexedInstanced(indexCount, instanceCount, 0, 0, 0);
 
-    // 4. Очистка
+    // 4. РћС‡РёСЃС‚РєР°
     ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
     m_context->PSSetShaderResources(0, 8, nullSRVs);
 }

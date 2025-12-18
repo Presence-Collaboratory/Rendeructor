@@ -119,13 +119,19 @@
     <ClCompile Include="BackendDX11.cpp">
       <Filter>Backend\Implementations\DirectX 11</Filter>
     </ClCompile>
-    <ClCompile Include="RendeructorCore.cpp">
+    <ClCompile Include="Rendeructor.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="RendeructorMesh.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="RendeructorTexture.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="RendeructorShader.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="RendeructorBuffers.cpp">
       <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
