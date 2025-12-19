@@ -64,6 +64,9 @@ public:
     void BeginFrame() override;
     void EndFrame() override;
 
+    void* GetDevice() override { return m_device.Get(); }
+    void* GetContext() override { return m_context.Get(); }
+
     void SetPipelineState(const PipelineState& state) override;
     void SetScissorRect(int x, int y, int width, int height);
 

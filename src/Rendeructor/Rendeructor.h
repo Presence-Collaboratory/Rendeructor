@@ -11,6 +11,9 @@ public:
     void Restart(const BackendConfig& config);
     void Destroy();
 
+    void* GetDevice() { return m_backend ? m_backend->GetDevice() : nullptr; }
+    void* GetContext() { return m_backend ? m_backend->GetContext() : nullptr; }
+
     void SetShaderPass(ShaderPass& pass);
     void CompilePass(ShaderPass& pass);
 

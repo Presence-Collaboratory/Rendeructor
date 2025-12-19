@@ -12,6 +12,9 @@ public:
     virtual void BeginFrame() = 0;
     virtual void EndFrame() = 0;
 
+    virtual void* GetDevice() = 0;
+    virtual void* GetContext() = 0;
+
     // State Management
     virtual void SetPipelineState(const PipelineState& state) = 0;
     virtual void SetScissorRect(int x, int y, int width, int height) = 0;
