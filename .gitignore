@@ -1,16 +1,14 @@
 *.db
 *.pdb
+*.exp
 *.db-shm
 *.db-wal
 *.opendb
 *.ipch
 *.PVS-Studio
 
-intermediate/*
-libraries/*
-appdata/*
-bin/*
-
 .vs/*
 build/*
+Rendeructor/lib/*
+Rendeructor/bin/*
 *.rar

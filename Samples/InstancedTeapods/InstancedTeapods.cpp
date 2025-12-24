@@ -1,10 +1,17 @@
-﻿#include "pch.h"
-#include <windows.h>
+﻿#define WIN32_LEAN_AND_MEAN
 #include <iostream>
+#include <windows.h>
+#include <string>
 #include <vector>
+#include <iostream>
+#include <chrono>
 #include <cmath>
 
-#include "Rendeructor.h"
+#pragma comment( lib, "winmm.lib")  
+
+#include <Rendeructor.h>
+
+#pragma comment( lib, "Rendeructor.lib") 
 
 using namespace Math;
 
@@ -32,7 +39,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         0, 0, hInstance, nullptr, LoadCursor(nullptr, IDC_ARROW), nullptr, nullptr, "GClass", nullptr };
     RegisterClassEx(&wc);
 
-    int W = 1600, H = 900;
+    int W = 1280, H = 720;
     HWND hwnd = CreateWindowEx(0, "GClass", "Massive Instancing Demo (Pipeline States)", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 100, 100, W, H, nullptr, nullptr, hInstance, nullptr);
 
     Rendeructor renderer;

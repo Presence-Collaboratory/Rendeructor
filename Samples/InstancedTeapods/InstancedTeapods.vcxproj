@@ -19,22 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
-    </ClCompile>
-    <ClCompile Include="test.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="pch.h" />
-  </ItemGroup>
-  <ItemGroup>
     <FxCompile Include="Shader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -46,12 +30,12 @@
     <Object Include="teapot.obj">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </Object>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Rendeructor\Rendeructor.vcxproj">
-      <Project>{39eba7bd-1b31-4479-b4d3-12072f4fe839}</Project>
-    </ProjectReference>
+    <ClCompile Include="InstancedTeapods.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -112,33 +96,33 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
-    <OutDir>$(SolutionDir)\build\bin\</OutDir>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x86\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
-    <OutDir>$(SolutionDir)\build\bin\</OutDir>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x86\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
-    <OutDir>$(SolutionDir)\build\bin\</OutDir>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x64\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
-    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Build\libraries\$(Configuration)-$(Platform)\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\src\Rendeructor\</ExternalIncludePath>
-    <OutDir>$(SolutionDir)\build\bin\</OutDir>
+    <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x64\;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -148,7 +132,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions) _CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -156,8 +140,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
-copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
+      <Command>copy /Y "$(SolutionDir)Rendeructor\bin\x86\Rendeructor.dll" "$(OutDir)Rendeructor.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -169,7 +152,7 @@ copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions) _CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -179,8 +162,7 @@ copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
-copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
+      <Command>copy /Y "$(SolutionDir)Rendeructor\bin\x86\Rendeructor.dll" "$(OutDir)Rendeructor.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -190,7 +172,7 @@ copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions) _CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -198,8 +180,7 @@ copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
-copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
+      <Command>copy /Y "$(SolutionDir)Rendeructor\bin\x64\Rendeructor.dll" "$(OutDir)Rendeructor.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -211,7 +192,7 @@ copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions) _CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -221,8 +202,7 @@ copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)src\Test\Shader.hlsl" "$(OutDir)Shader.hlsl"
-copy /Y "$(SolutionDir)src\Test\test.png" "$(OutDir)test.png"</Command>
+      <Command>copy /Y "$(SolutionDir)Rendeructor\bin\x64\Rendeructor.dll" "$(OutDir)Rendeructor.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
