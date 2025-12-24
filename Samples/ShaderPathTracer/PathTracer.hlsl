@@ -11,56 +11,121 @@ cbuffer SceneBuffer : register(b0) {
     float4 Params;
 };
 
-// Увеличиваем лимиты для высокой точности
-static const int MAX_STEPS = 1000;      // Было 256 -> стало 1000 (чтобы доходить до краев)
+// Структура объекта (совпадает с C++)
+struct SDFObject {
+    float4 PositionAndType; // .w = Type
+    float4 SizeAndPadding;
+    float4 Rotation;
+    float4 Color;
+};
+
+static const int MAX_OBJECTS = 64;
+
+// Буфер объектов (register b1)
+cbuffer ObjectBuffer : register(b1) {
+    SDFObject Objects[MAX_OBJECTS];
+    int ObjectCount;
+    float3 ObjPadding;
+};
+
+// Лимиты
+static const int MAX_STEPS = 512;
 static const float MAX_DIST = 100.0;
-static const float SURF_DIST = 0.00005; // Было 0.001 -> стало 0.00005 (очень близко к поверхности)
+static const float SURF_DIST = 0.0001;
 
 // =========================================================
-// 1. PRIMITIVES (SDF)
+// MATH HELPERS
+// =========================================================
+
+// Вращение точки p на углы Эйлера (inverse rotation для объекта)
+float3 RotatePoint(float3 p, float3 rot) {
+    // Rotate X
+    float s = sin(rot.x); float c = cos(rot.x);
+    p.yz = mul(float2x2(c, s, -s, c), p.yz);
+    // Rotate Y
+    s = sin(rot.y); c = cos(rot.y);
+    p.xz = mul(float2x2(c, -s, s, c), p.xz);
+    // Rotate Z
+    s = sin(rot.z); c = cos(rot.z);
+    p.xy = mul(float2x2(c, s, -s, c), p.xy);
+    return p;
+}
+
+// =========================================================
+// PRIMITIVES
 // =========================================================
 
 float sdSphere(float3 p, float s) { return length(p) - s; }
-float sdPlane(float3 p, float3 n, float h) { return dot(p, n) + h; }
 float sdBox(float3 p, float3 b) {
     float3 q = abs(p) - b;
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
-float2 opUnion(float2 d1, float2 d2) { return (d1.x < d2.x) ? d1 : d2; }
+float sdPlane(float3 p, float3 n, float h) { return dot(p, n) + h; }
 
 // =========================================================
-// 2. SCENE DEFINITION (STATIC)
+// SCENE MAPPING (DYNAMIC LOOP)
 // =========================================================
 
+// Возвращает float2(Distance, ObjectIndex)
+// Теперь .y это не абстрактный ID материала, а ИНДЕКС в массиве Objects
 float2 Map(float3 p) {
-    float2 scene = float2(MAX_DIST, 0.0);
 
-    // Сфера
-    float dSphere = sdSphere(p - float3(-1.2, 1.0, 0.0), 1.0);
-    scene = opUnion(scene, float2(dSphere, 1.0));
+    float minDist = MAX_DIST;
+    float hitIndex = -1.0;
 
-    // Куб (СТАТИЧНЫЙ, без вращения)
-    // Просто сдвигаем его в сторону
-    float3 pBox = p - float3(1.5, 1.0, 0.0);
-    float dBox = sdBox(pBox, float3(0.8, 0.8, 0.8));
-    scene = opUnion(scene, float2(dBox, 2.0));
+    for (int i = 0; i < ObjectCount; i++) {
+        SDFObject obj = Objects[i];
 
-    // Пол
-    float dPlane = sdPlane(p, float3(0.0, 1.0, 0.0), 0.0);
-    scene = opUnion(scene, float2(dPlane, 3.0));
+        float3 pos = obj.PositionAndType.xyz;
+        int type = (int)obj.PositionAndType.w;
+        float3 size = obj.SizeAndPadding.xyz;
+        float3 rot = obj.Rotation.xyz;
 
-    return scene;
+        // Трансформируем точку в локальное пространство объекта
+        // 1. Сдвиг (Translation)
+        float3 localP = p - pos;
+
+        // 2. Вращение (Rotation) - только если углы не нулевые (для оптимизации можно убрать if)
+        // Для сферы вращение не нужно, но для общности оставим
+        if (length(rot) > 0.001) {
+            // Вращаем пространство в ОБРАТНУЮ сторону вращения объекта
+            localP = RotatePoint(localP, -rot);
+        }
+
+        float d = MAX_DIST;
+
+        if (type == 0) { // SPHERE
+            // Для сферы size.x = radius. Вращение не влияет на форму, но влияет на текстуру (если бы была)
+            // Но мы вращаем localP, так что все ок.
+            d = sdSphere(localP, size.x);
+        }
+        else if (type == 1) { // BOX
+            d = sdBox(localP, size);
+        }
+        else if (type == 2) { // PLANE
+            // Для плоскости rotation задает нормаль? 
+            // Пока упростим: плоскость всегда смотрит вверх Y, а pos.y задает высоту
+            // Если нужно вращать плоскость, localP это обработает.
+            // Нормаль в локальном пространстве всегда (0,1,0)
+            d = sdPlane(localP, float3(0, 1, 0), 0.0);
+        }
+
+        // Объединение (Union)
+        if (d < minDist) {
+            minDist = d;
+            hitIndex = (float)i;
+        }
+    }
+
+    return float2(minDist, hitIndex);
 }
 
 // =========================================================
-// 3. RAY CASTING & NORMAL CALCULATION
+// RAY CASTING & NORMALS
 // =========================================================
 
 float3 CalcNormal(float3 p) {
-    // Epsilon должен быть чуть больше SURF_DIST, но достаточно мал, 
-    // чтобы не "захватывать" кривизну соседних объектов.
     float e = 0.0001;
-
     float d = Map(p).x;
     float3 n = float3(
         d - Map(p - float3(e, 0, 0)).x,
@@ -72,26 +137,19 @@ float3 CalcNormal(float3 p) {
 
 float CastRay(float3 ro, float3 rd) {
     float t = 0.0;
+    // Оптимизация шагов для цикла
     for (int i = 0; i < MAX_STEPS; i++) {
         float3 p = ro + rd * t;
-
-        // Оптимизация: проверяем только дистанцию (h.x), ID материала не нужен пока
         float h = Map(p).x;
-
-        // Условие попадания
         if (h < SURF_DIST) return t;
-
-        // Безопасный шаг: чуть-чуть не дошагиваем, чтобы не провалиться сквозь геометрию
-        // Это убирает артефакты на острых углах
         t += h;
-
         if (t > MAX_DIST) break;
     }
     return MAX_DIST;
 }
 
 // =========================================================
-// 4. MAIN SHADER
+// PIXEL SHADER
 // =========================================================
 
 struct VS_OUTPUT {
@@ -107,52 +165,53 @@ VS_OUTPUT VS_Quad(float3 Pos : POSITION, float2 UV : TEXCOORD0) {
 }
 
 float4 PS_PathTrace(VS_OUTPUT input) : SV_Target{
-    // 1. Координаты
     float2 uv = input.UV * 2.0 - 1.0;
     uv.y *= -1.0;
 
-    // 2. Луч (из базисных векторов)
     float3 rayDir = normalize(CameraDir.xyz + CameraRight.xyz * uv.x + CameraUp.xyz * uv.y);
     float3 rayOrigin = CameraPos.xyz;
 
-    // 3. Трассировка
     float dist = CastRay(rayOrigin, rayDir);
 
-    // 4. Фон (Небо)
     if (dist >= MAX_DIST) {
-        return float4(0.05, 0.05, 0.1, 1.0); // Темно-синий фон
+        return float4(0.05, 0.05, 0.1, 1.0);
     }
 
-    // 5. Расчет цвета поверхности
     float3 hitPos = rayOrigin + rayDir * dist;
     float3 normal = CalcNormal(hitPos);
 
-    // Освещение (направленный свет)
+    // --- ОПРЕДЕЛЕНИЕ ЦВЕТА ОБЪЕКТА ---
+    // 1. Узнаем индекс объекта, в который попали
+    float index = Map(hitPos).y;
+
+    float3 albedo = float3(1,0,1); // Розовый (ошибка) по умолчанию
+
+    // 2. Достаем цвет из массива по индексу
+    if (index >= 0.0) {
+        // HLSL позволяет индексировать массивы неконстантным индексом
+        // (хотя это может быть чуть медленнее, для <64 объектов это моментально)
+        int i = (int)index;
+        albedo = Objects[i].Color.rgb;
+    }
+
+    // --- ОСВЕЩЕНИЕ ---
     float3 lightDir = normalize(float3(-0.5, 0.8, -0.5));
     float diff = max(dot(normal, lightDir), 0.0);
 
-    // Жесткие тени (Raymarched Shadows)
-    // Пускаем луч от точки в сторону света
+    // Тени
     float shadow = 1.0;
-    float t = 0.02; // Начинаем чуть поодаль от поверхности
-    for (int i = 0; i < 50; i++) {
+    float t = 0.02;
+    for (int j = 0; j < 50; j++) {
         float h = Map(hitPos + lightDir * t).x;
-        if (h < 0.001) { shadow = 0.0; break; } // Попали в препятствие -> тень
+        if (h < 0.001) { shadow = 0.0; break; }
         t += h;
         if (t > 10.0) break;
     }
 
-    // Albedo (цвет материалов)
-    // Чтобы узнать ID материала, вызываем Map еще раз
-    float matID = Map(hitPos).y;
-    float3 albedo = float3(1,1,1);
+    float3 color = albedo * (diff * shadow + 0.1);
 
-    if (matID == 1.0) albedo = float3(0.8, 0.1, 0.1); // Сфера - Красная
-    if (matID == 2.0) albedo = float3(0.1, 0.8, 0.2); // Куб - Зеленый
-    if (matID == 3.0) albedo = float3(0.5, 0.5, 0.5); // Пол - Серый
-
-    // Финальный цвет
-    float3 color = albedo * (diff * shadow + 0.1); // 0.1 ambient
+    // Гамма коррекция (примитивная)
+    color = pow(color, 1.0 / 2.2);
 
     return float4(color, 1.0);
 }
