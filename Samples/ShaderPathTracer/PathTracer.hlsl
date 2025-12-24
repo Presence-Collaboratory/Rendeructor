@@ -13,10 +13,10 @@ cbuffer SceneBuffer : register(b0) {
 
 // Структура объекта (совпадает с C++)
 struct SDFObject {
-    float4 PositionAndType; // .w = Type
-    float4 SizeAndPadding;
-    float4 Rotation;
-    float4 Color;
+    float4 PositionAndType; // .xyz = Pos, .w = Type
+    float4 SizeAndRough;    // .xyz = Size, .w = ROUGHNESS
+    float4 RotationAndMetal;// .xyz = Rot,  .w = METALNESS
+    float4 ColorAndEmit;    // .xyz = Color,.w = EMISSION
 };
 
 static const int MAX_OBJECTS = 64;
@@ -78,8 +78,8 @@ float2 Map(float3 p) {
 
         float3 pos = obj.PositionAndType.xyz;
         int type = (int)obj.PositionAndType.w;
-        float3 size = obj.SizeAndPadding.xyz;
-        float3 rot = obj.Rotation.xyz;
+        float3 size = obj.SizeAndRough.xyz;
+        float3 rot = obj.RotationAndMetal.xyz;
 
         // Трансформируем точку в локальное пространство объекта
         // 1. Сдвиг (Translation)
@@ -173,45 +173,50 @@ float4 PS_PathTrace(VS_OUTPUT input) : SV_Target{
 
     float dist = CastRay(rayOrigin, rayDir);
 
+    // Фон (Темно-серый, чтобы было видно эмиссию)
     if (dist >= MAX_DIST) {
-        return float4(0.05, 0.05, 0.1, 1.0);
+        return float4(0.05, 0.05, 0.05, 1.0);
     }
 
     float3 hitPos = rayOrigin + rayDir * dist;
-    float3 normal = CalcNormal(hitPos);
 
-    // --- ОПРЕДЕЛЕНИЕ ЦВЕТА ОБЪЕКТА ---
-    // 1. Узнаем индекс объекта, в который попали
-    float index = Map(hitPos).y;
+    // Узнаем индекс объекта
+    float indexFloat = Map(hitPos).y;
+    int index = (int)indexFloat;
 
-    float3 albedo = float3(1,0,1); // Розовый (ошибка) по умолчанию
+    // Получаем данные материала
+    float roughness = 0.0;
+    float metalness = 0.0;
+    float emission = 0.0;
+    float3 baseColor = float3(1,0,1);
 
-    // 2. Достаем цвет из массива по индексу
-    if (index >= 0.0) {
-        // HLSL позволяет индексировать массивы неконстантным индексом
-        // (хотя это может быть чуть медленнее, для <64 объектов это моментально)
-        int i = (int)index;
-        albedo = Objects[i].Color.rgb;
+    if (index >= 0 && index < ObjectCount) {
+        SDFObject obj = Objects[index];
+
+        // РАСПАКОВКА ПАРАМЕТРОВ
+        baseColor = obj.ColorAndEmit.rgb;
+        roughness = obj.SizeAndRough.w;
+        metalness = obj.RotationAndMetal.w;
+        emission = obj.ColorAndEmit.w;
     }
 
-    // --- ОСВЕЩЕНИЕ ---
-    float3 lightDir = normalize(float3(-0.5, 0.8, -0.5));
-    float diff = max(dot(normal, lightDir), 0.0);
+    // --- ВИЗУАЛИЗАЦИЯ (DEBUG VIEW) ---
+    // Выводим параметры материала как цвета, чтобы проверить, что они дошли
 
-    // Тени
-    float shadow = 1.0;
-    float t = 0.02;
-    for (int j = 0; j < 50; j++) {
-        float h = Map(hitPos + lightDir * t).x;
-        if (h < 0.001) { shadow = 0.0; break; }
-        t += h;
-        if (t > 10.0) break;
-    }
+    float3 debugColor = float3(0,0,0);
 
-    float3 color = albedo * (diff * shadow + 0.1);
+    // R = Roughness (Чем краснее, тем шершавее)
+    debugColor.r = roughness;
 
-    // Гамма коррекция (примитивная)
-    color = pow(color, 1.0 / 2.2);
+    // G = Metalness (Чем зеленее, тем металличнее)
+    debugColor.g = metalness;
 
-    return float4(color, 1.0);
+    // B = Emission (Чем синее, тем ярче светится)
+    // Делим на 5.0, чтобы сильное свечение не становилось просто белым сразу
+    debugColor.b = min(emission / 5.0, 1.0);
+
+    // Добавим немного базового цвета объекта (на 20%), чтобы видеть форму
+    debugColor += baseColor * 0.2;
+
+    return float4(debugColor, 1.0);
 }

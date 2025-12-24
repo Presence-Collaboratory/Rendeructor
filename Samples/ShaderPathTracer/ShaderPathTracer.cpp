@@ -30,9 +30,9 @@ enum class PrimitiveType {
 // "Сырая" структура для отправки в шейдер
 struct SDFObjectGPU {
     Math::float4 PositionAndType; // .xyz = Pos, .w = Type
-    Math::float4 SizeAndPadding;  // .xyz = Size, .w = Padding
-    Math::float4 Rotation;        // .xyz = Radians, .w = Padding
-    Math::float4 Color;           // .xyz = RGB, .w = Reflectivity/Spec
+    Math::float4 SizeAndRough;    // .xyz = Size, .w = ROUGHNESS
+    Math::float4 RotationAndMetal;// .xyz = Rot,  .w = METALNESS
+    Math::float4 ColorAndEmit;    // .xyz = Color,.w = EMISSION
 };
 
 struct SceneObjectsBuffer {
@@ -88,29 +88,30 @@ class GeometryPrimitive : public Object {
 public:
     GeometryPrimitive(int id, PrimitiveType type) : Object(id), m_type(type) {}
 
-    void SetColor(const float3& color) { m_color = color; }
     void SetColor(float r, float g, float b) { m_color = float3(r, g, b); }
 
-    void SetReflectivity(float r) { m_reflectivity = r; }
+    // --- НОВЫЕ ПАРАМЕТРЫ ---
+    void SetRoughness(float r) { m_roughness = r; }
+    void SetMetalness(float m) { m_metalness = m; }
+    void SetEmission(float e) { m_emission = e; }
 
-    // Метод упаковки данных в формат, понятный шейдеру
     SDFObjectGPU GetGPUData() const {
         SDFObjectGPU data;
 
         // 1. Position & Type
         data.PositionAndType = float4(m_position.x, m_position.y, m_position.z, (float)m_type);
 
-        // 2. Size (Scale)
-        data.SizeAndPadding = float4(m_scale.x, m_scale.y, m_scale.z, 0.0f);
+        // 2. Size & Roughness (Pack into .w)
+        data.SizeAndRough = float4(m_scale.x, m_scale.y, m_scale.z, m_roughness);
 
-        // 3. Rotation (Конвертируем Градусы -> Радианы прямо перед отправкой)
+        // 3. Rotation & Metalness (Pack into .w)
         float radX = m_rotationDeg.x * 3.14159f / 180.0f;
         float radY = m_rotationDeg.y * 3.14159f / 180.0f;
         float radZ = m_rotationDeg.z * 3.14159f / 180.0f;
-        data.Rotation = float4(radX, radY, radZ, 0.0f);
+        data.RotationAndMetal = float4(radX, radY, radZ, m_metalness);
 
-        // 4. Color & Material
-        data.Color = float4(m_color.x, m_color.y, m_color.z, m_reflectivity);
+        // 4. Color & Emission (Pack into .w)
+        data.ColorAndEmit = float4(m_color.x, m_color.y, m_color.z, m_emission);
 
         return data;
     }
@@ -118,7 +119,11 @@ public:
 private:
     PrimitiveType m_type;
     float3 m_color = { 1, 1, 1 };
-    float m_reflectivity = 0.0f;
+
+    // Новые свойства (по умолчанию стандартный неметалл)
+    float m_roughness = 0.5f;
+    float m_metalness = 0.0f;
+    float m_emission = 0.0f;
 };
 
 // 3. Сцена (Менеджер объектов)
@@ -228,36 +233,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     // ==========================================
     Scene myScene;
 
-    // 1. Пол
+    // 1. Пол (Матовый, темный)
     auto floor = myScene.CreatePrimitive(PrimitiveType::Plane);
-    floor->SetPosition(0, 0, 0); // Высота 0
-    floor->SetColor(0.5f, 0.5f, 0.5f);
+    floor->SetPosition(0, 0, 0);
+    floor->SetColor(0.2f, 0.2f, 0.2f);
+    floor->SetRoughness(1.0f); // Полностью матовый
+    floor->SetMetalness(0.0f);
 
-    // 2. Красная Сфера
+    // 2. Сфера (Идеально зеркальный металл)
     auto sphere = myScene.CreatePrimitive(PrimitiveType::Sphere);
     sphere->SetPosition(-1.2f, 1.0f, 0.0f);
-    sphere->SetScale(1.0f); // Радиус 1.0
-    sphere->SetColor(0.8f, 0.1f, 0.1f);
+    sphere->SetScale(1.0f);
+    sphere->SetColor(1.0f, 0.9f, 0.8f); // Золотой оттенок
+    sphere->SetRoughness(0.05f); // Почти зеркало
+    sphere->SetMetalness(1.0f);  // Металл
 
-    // 3. Зеленый Куб (Повернутый)
+    // 3. Куб (Шероховатый пластик)
     auto box = myScene.CreatePrimitive(PrimitiveType::Box);
     box->SetPosition(1.5f, 1.0f, 0.0f);
     box->SetScale(0.8f);
-    box->SetRotation(0.0f, 45.0f, 0.0f); // 45 градусов по Y
-    box->SetColor(0.1f, 0.8f, 0.2f);
+    box->SetRotation(0.0f, 45.0f, 0.0f);
+    box->SetColor(0.1f, 0.8f, 0.2f); // Зеленый
+    box->SetRoughness(0.8f); // Шершавый
+    box->SetMetalness(0.0f); // Пластик
 
-    // 4. Синий маленький кубик сверху
-    auto smallBox = myScene.CreatePrimitive(PrimitiveType::Box);
-    smallBox->SetPosition(0.0f, 0.5f, 0.0f);
-    smallBox->SetScale(0.3f);
-    smallBox->SetRotation(45.0f, 45.0f, 0.0f);
-    smallBox->SetColor(0.1f, 0.2f, 0.9f);
-
-    // 5. Добавим еще что-нибудь, например высокую платформу
-    auto tower = myScene.CreatePrimitive(PrimitiveType::Box);
-    tower->SetPosition(-2.5f, 2.0f, 2.0f);
-    tower->SetScale(0.5f, 2.0f, 0.5f); // Высокий параллелепипед
-    tower->SetColor(0.9f, 0.6f, 0.1f); // Оранжевый
+    // 4. Светящийся кубик (Лампа)
+    auto lightBox = myScene.CreatePrimitive(PrimitiveType::Box);
+    lightBox->SetPosition(0.0f, 0.5f, 2.0f); // Чуть ближе к камере
+    lightBox->SetScale(0.3f);
+    lightBox->SetRotation(45.0f, 45.0f, 0.0f);
+    lightBox->SetColor(1.0f, 0.5f, 0.0f); // Оранжевый цвет
+    lightBox->SetEmission(5.0f); // СВЕТИТСЯ! (Яркость > 1.0)
 
     // ==========================================
 
