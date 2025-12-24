@@ -11,43 +11,46 @@ cbuffer SceneBuffer : register(b0) {
     float4 Params;
 };
 
-// Структура объекта (совпадает с C++)
 struct SDFObject {
-    float4 PositionAndType; // .xyz = Pos, .w = Type
-    float4 SizeAndRough;    // .xyz = Size, .w = ROUGHNESS
-    float4 RotationAndMetal;// .xyz = Rot,  .w = METALNESS
-    float4 ColorAndEmit;    // .xyz = Color,.w = EMISSION
+    float4 PositionAndType;
+    float4 SizeAndRough;
+    float4 RotationAndMetal;
+    float4 ColorAndEmit;
 };
 
-static const int MAX_OBJECTS = 64;
+static const int MAX_OBJECTS = 128;
 
-// Буфер объектов (register b1)
 cbuffer ObjectBuffer : register(b1) {
     SDFObject Objects[MAX_OBJECTS];
     int ObjectCount;
     float3 ObjPadding;
 };
 
-// Лимиты
-static const int MAX_STEPS = 512;
-static const float MAX_DIST = 100.0;
+static const int MAX_STEPS = 4096;
+static const float MAX_DIST = 512;
 static const float SURF_DIST = 0.0001;
 
 // =========================================================
 // MATH HELPERS
 // =========================================================
 
-// Вращение точки p на углы Эйлера (inverse rotation для объекта)
 float3 RotatePoint(float3 p, float3 rot) {
-    // Rotate X
-    float s = sin(rot.x); float c = cos(rot.x);
-    p.yz = mul(float2x2(c, s, -s, c), p.yz);
-    // Rotate Y
-    s = sin(rot.y); c = cos(rot.y);
-    p.xz = mul(float2x2(c, -s, s, c), p.xz);
-    // Rotate Z
-    s = sin(rot.z); c = cos(rot.z);
-    p.xy = mul(float2x2(c, s, -s, c), p.xy);
+    float s, c;
+    // X
+    if (abs(rot.x) > 0.0001) {
+        s = sin(rot.x); c = cos(rot.x);
+        p.yz = mul(float2x2(c, s, -s, c), p.yz);
+    }
+    // Y
+    if (abs(rot.y) > 0.0001) {
+        s = sin(rot.y); c = cos(rot.y);
+        p.xz = mul(float2x2(c, -s, s, c), p.xz);
+    }
+    // Z
+    if (abs(rot.z) > 0.0001) {
+        s = sin(rot.z); c = cos(rot.z);
+        p.xy = mul(float2x2(c, s, -s, c), p.xy);
+    }
     return p;
 }
 
@@ -63,13 +66,10 @@ float sdBox(float3 p, float3 b) {
 float sdPlane(float3 p, float3 n, float h) { return dot(p, n) + h; }
 
 // =========================================================
-// SCENE MAPPING (DYNAMIC LOOP)
+// MAP FUNCTION
 // =========================================================
 
-// Возвращает float2(Distance, ObjectIndex)
-// Теперь .y это не абстрактный ID материала, а ИНДЕКС в массиве Objects
 float2 Map(float3 p) {
-
     float minDist = MAX_DIST;
     float hitIndex = -1.0;
 
@@ -81,47 +81,29 @@ float2 Map(float3 p) {
         float3 size = obj.SizeAndRough.xyz;
         float3 rot = obj.RotationAndMetal.xyz;
 
-        // Трансформируем точку в локальное пространство объекта
-        // 1. Сдвиг (Translation)
         float3 localP = p - pos;
 
-        // 2. Вращение (Rotation) - только если углы не нулевые (для оптимизации можно убрать if)
-        // Для сферы вращение не нужно, но для общности оставим
-        if (length(rot) > 0.001) {
-            // Вращаем пространство в ОБРАТНУЮ сторону вращения объекта
+        // Оптимизация: вращаем только если нужно
+        if (dot(rot, rot) > 0.0001) {
             localP = RotatePoint(localP, -rot);
         }
 
         float d = MAX_DIST;
 
-        if (type == 0) { // SPHERE
-            // Для сферы size.x = radius. Вращение не влияет на форму, но влияет на текстуру (если бы была)
-            // Но мы вращаем localP, так что все ок.
-            d = sdSphere(localP, size.x);
-        }
-        else if (type == 1) { // BOX
-            d = sdBox(localP, size);
-        }
-        else if (type == 2) { // PLANE
-            // Для плоскости rotation задает нормаль? 
-            // Пока упростим: плоскость всегда смотрит вверх Y, а pos.y задает высоту
-            // Если нужно вращать плоскость, localP это обработает.
-            // Нормаль в локальном пространстве всегда (0,1,0)
-            d = sdPlane(localP, float3(0, 1, 0), 0.0);
-        }
+        if (type == 0) d = sdSphere(localP, size.x);
+        else if (type == 1) d = sdBox(localP, size);
+        else if (type == 2) d = sdPlane(localP, float3(0, 1, 0), 0.0);
 
-        // Объединение (Union)
         if (d < minDist) {
             minDist = d;
             hitIndex = (float)i;
         }
     }
-
     return float2(minDist, hitIndex);
 }
 
 // =========================================================
-// RAY CASTING & NORMALS
+// RAY CASTING
 // =========================================================
 
 float3 CalcNormal(float3 p) {
@@ -137,19 +119,28 @@ float3 CalcNormal(float3 p) {
 
 float CastRay(float3 ro, float3 rd) {
     float t = 0.0;
-    // Оптимизация шагов для цикла
+
+    // Бесконечный цикл с жестким брейком
     for (int i = 0; i < MAX_STEPS; i++) {
         float3 p = ro + rd * t;
+
+        // Получаем дистанцию до сцены
         float h = Map(p).x;
-        if (h < SURF_DIST) return t;
-        t += h;
+
+        // Если очень близко - мы попали
+        if (abs(h) < SURF_DIST) return t;
+
+        t += h; // Шагаем на безопасное расстояние
+
+        // Если улетели за горизонт или попали внутрь геометрии (глюк SDF)
         if (t > MAX_DIST) break;
     }
+
     return MAX_DIST;
 }
 
 // =========================================================
-// PIXEL SHADER
+// PIXEL SHADER - SCENE PREVIEW
 // =========================================================
 
 struct VS_OUTPUT {
@@ -173,50 +164,67 @@ float4 PS_PathTrace(VS_OUTPUT input) : SV_Target{
 
     float dist = CastRay(rayOrigin, rayDir);
 
-    // Фон (Темно-серый, чтобы было видно эмиссию)
-    if (dist >= MAX_DIST) {
-        return float4(0.05, 0.05, 0.05, 1.0);
+    // 1. Фон / Небо
+    if (dist >= MAX_DIST - 1.0) {
+        return float4(0.01, 0.01, 0.02, 1.0);
     }
 
     float3 hitPos = rayOrigin + rayDir * dist;
+    float3 normal = CalcNormal(hitPos);
 
-    // Узнаем индекс объекта
-    float indexFloat = Map(hitPos).y;
-    int index = (int)indexFloat;
+    // Распаковка материала
+    int index = (int)Map(hitPos).y;
+    SDFObject obj = Objects[index];
 
-    // Получаем данные материала
-    float roughness = 0.0;
-    float metalness = 0.0;
-    float emission = 0.0;
-    float3 baseColor = float3(1,0,1);
+    float3 albedo = obj.ColorAndEmit.rgb;
+    float emission = obj.ColorAndEmit.w;
 
-    if (index >= 0 && index < ObjectCount) {
-        SDFObject obj = Objects[index];
-
-        // РАСПАКОВКА ПАРАМЕТРОВ
-        baseColor = obj.ColorAndEmit.rgb;
-        roughness = obj.SizeAndRough.w;
-        metalness = obj.RotationAndMetal.w;
-        emission = obj.ColorAndEmit.w;
+    // --- ИСПРАВЛЕНИЕ 1: Свет не принимает тени ---
+    // Если объект светится достаточно сильно, просто возвращаем его цвет
+    if (emission > 0.01) {
+        // Albedo * Emission. Плюс можно добавить 1.0 чтобы гарантировать яркость
+        // Или просто вернуть float4(albedo * emission, 1.0);
+        // Используем такую формулу, чтобы цвет был сочным:
+        return float4(albedo * (emission + 1.0), 1.0);
     }
 
-    // --- ВИЗУАЛИЗАЦИЯ (DEBUG VIEW) ---
-    // Выводим параметры материала как цвета, чтобы проверить, что они дошли
+    // --- ОСВЕЩЕНИЕ ДЛЯ ОБЫЧНЫХ ОБЪЕКТОВ ---
+    float3 lightPos = float3(8.0, 15.0, 8.0);
+    float3 L = normalize(lightPos - hitPos);
+    float diff = max(dot(normal, L), 0.0);
 
-    float3 debugColor = float3(0,0,0);
+    // ТЕНИ
+    float shadow = 1.0;
+    float distToLight = length(lightPos - hitPos);
+    float t_shadow = 0.1; // Bias чуть больше
 
-    // R = Roughness (Чем краснее, тем шершавее)
-    debugColor.r = roughness;
+    for (int k = 0; k < 128; k++) {
+        float2 h_res = Map(hitPos + L * t_shadow);
+        float h = h_res.x;
+        float id = h_res.y; // ID препятствия
 
-    // G = Metalness (Чем зеленее, тем металличнее)
-    debugColor.g = metalness;
+        if (h < 0.001) {
+            // --- ИСПРАВЛЕНИЕ 2: Лампа не должна отбрасывать тень на других (в превью) ---
+            // Если мы врезались в препятствие, проверяем, не лампа ли это?
+            // Берем Emission препятствия:
+            SDFObject obstacle = Objects[(int)id];
+            if (obstacle.ColorAndEmit.w > 0.1) {
+                // Если препятствие светится -> это свет, а не тень!
+                shadow = 1.0;
+            }
+ else {
+                // Это камень/стена -> это тень
+                shadow = 0.0;
+            }
+            break;
+        }
 
-    // B = Emission (Чем синее, тем ярче светится)
-    // Делим на 5.0, чтобы сильное свечение не становилось просто белым сразу
-    debugColor.b = min(emission / 5.0, 1.0);
+        t_shadow += h;
+        if (t_shadow > distToLight) break;
+    }
 
-    // Добавим немного базового цвета объекта (на 20%), чтобы видеть форму
-    debugColor += baseColor * 0.2;
+    float3 finalColor = albedo * (diff * shadow + 0.02);
+    finalColor += albedo * emission; // (На всякий случай для слабых свечений)
 
-    return float4(debugColor, 1.0);
+    return float4(finalColor, 1.0);
 }
