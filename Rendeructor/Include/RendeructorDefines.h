@@ -8,7 +8,7 @@
 
 enum class ScreenMode { Windowed, Fullscreen, Borderless };
 enum class RenderAPI { DirectX11, DirectX12, OpenGL, Vulkan };
-enum class TextureFormat { RGBA8, RGBA16F, R16F, R32F };
+enum class TextureFormat { RGBA8, RGBA16F, RGBA32F, R16F, R32F };
 
 enum class CullMode {
     None,

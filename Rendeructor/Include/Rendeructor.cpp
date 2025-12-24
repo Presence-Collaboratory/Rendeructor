@@ -121,7 +121,6 @@ void Rendeructor::RenderPassToTexture(const Texture& target) {
 void Rendeructor::RenderPassToScreen() {
     if (m_backend) {
         m_backend->SetRenderTarget(nullptr, nullptr, nullptr, nullptr);
-        m_backend->DrawFullScreenQuad();
     }
 }
 

@@ -15,6 +15,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RenderToTexture", "Samples\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ShaderPathTracer", "Samples\ShaderPathTracer\ShaderPathTracer.vcxproj", "{F7585408-B57A-4381-8975-246B1A66CCB2}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TileRendering", "Samples\TileRendering\TileRendering.vcxproj", "{CA2FA895-7DCC-4005-9552-86964F3C864F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -55,6 +57,14 @@ Global
 		{F7585408-B57A-4381-8975-246B1A66CCB2}.Release|x64.Build.0 = Release|x64
 		{F7585408-B57A-4381-8975-246B1A66CCB2}.Release|x86.ActiveCfg = Release|Win32
 		{F7585408-B57A-4381-8975-246B1A66CCB2}.Release|x86.Build.0 = Release|Win32
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Debug|x64.ActiveCfg = Debug|x64
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Debug|x64.Build.0 = Debug|x64
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Debug|x86.ActiveCfg = Debug|Win32
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Debug|x86.Build.0 = Debug|Win32
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Release|x64.ActiveCfg = Release|x64
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Release|x64.Build.0 = Release|x64
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Release|x86.ActiveCfg = Release|Win32
+		{CA2FA895-7DCC-4005-9552-86964F3C864F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -64,6 +74,7 @@ Global
 		{94FACB73-D971-4A97-ABAD-32B2DD6C9F69} = {E9A798A1-A78A-4D34-AAA4-B0F802BE567D}
 		{0D07917B-37F9-4465-9F59-A668BC4831CE} = {E9A798A1-A78A-4D34-AAA4-B0F802BE567D}
 		{F7585408-B57A-4381-8975-246B1A66CCB2} = {E9A798A1-A78A-4D34-AAA4-B0F802BE567D}
+		{CA2FA895-7DCC-4005-9552-86964F3C864F} = {E9A798A1-A78A-4D34-AAA4-B0F802BE567D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A4B16603-B6CA-4EDD-BB60-F28DE6BD46CB}

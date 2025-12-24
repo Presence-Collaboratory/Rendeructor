@@ -221,6 +221,9 @@
     <ClCompile Include="RendeructorTexture.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="..\..\Third-Party\Include\Stb_image\stb_image.h" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="..\..\Third-Party\Include\MathAPI\math_float2.inl" />
     <None Include="..\..\Third-Party\Include\MathAPI\math_float2x2.inl" />
     <None Include="..\..\Third-Party\Include\MathAPI\math_float3.inl" />
@@ -230,9 +233,6 @@
     <None Include="..\..\Third-Party\Include\MathAPI\math_half2.inl" />
     <None Include="..\..\Third-Party\Include\MathAPI\math_half3.inl" />
     <None Include="..\..\Third-Party\Include\MathAPI\math_half4.inl" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="..\..\Third-Party\Include\Stb_image\stb_image.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

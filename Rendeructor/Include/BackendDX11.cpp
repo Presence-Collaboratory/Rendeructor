@@ -382,6 +382,10 @@ void* BackendDX11::CreateTextureResource(int width, int height, int format, cons
         desc.Format = DXGI_FORMAT_R32_FLOAT;
         bytesPerPixel = 4;
         break;
+    case TextureFormat::RGBA32F:
+        desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+        bytesPerPixel = 16;
+        break;
     default:
         desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
         bytesPerPixel = 4;
