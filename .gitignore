@@ -12,3 +12,4 @@ build/*
 Rendeructor/lib/*
 Rendeructor/bin/*
 *.rar
+*.exe
