@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <memory>
-#include <algorithm> // for max
+#include <algorithm>
 
 #include <Imgui/imgui.h>
 #include <Imgui/backends/imgui_impl_dx11.h>
@@ -13,30 +13,28 @@
 
 #include <Rendeructor.h>
 
-#pragma comment( lib, "winmm.lib")  
-#pragma comment( lib, "Rendeructor.lib") 
-#pragma comment(lib, "d3d11.lib") 
+#pragma comment(lib, "winmm.lib")  
+#pragma comment(lib, "Rendeructor.lib") 
 
 // =========================================================
-// IMGUI WNDPROC HANDLER
+// EXTERNS & CONSTANTS
 // =========================================================
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 using namespace Math;
 
-// =========================================================
-// GPU DATA STRUCTURES
-// =========================================================
-
 const int MAX_OBJECTS = 128;
-const int TILE_SIZE = 32; // Размер плитки рендеринга
-const int SSAA_FACTOR = 1; // 1 = Нативное разрешение (быстрее)
+const int TILE_SIZE = 32;
+const int SSAA_FACTOR = 1;
 
 enum class PrimitiveType { Sphere = 0, Box = 1, Plane = 2 };
 
+// =========================================================
+// GPU STRUCTS
+// =========================================================
 struct PostProcessData {
     float Exposure;
-    Math::float3 Padding; // Выравнивание до 16 байт (float4 size)
+    Math::float3 Padding;
 };
 
 struct HighlightCB {
@@ -60,18 +58,17 @@ struct SceneObjectsBuffer {
 };
 
 struct PTSceneData {
-    Math::float4   CameraPos;
-    Math::float4   CameraDir;
-    Math::float4   CameraRight;
-    Math::float4   CameraUp;
-    Math::float4   Resolution;
-    Math::float4   Params; // x = Seed, y = Probability
+    Math::float4 CameraPos;
+    Math::float4 CameraDir;
+    Math::float4 CameraRight;
+    Math::float4 CameraUp;
+    Math::float4 Resolution;
+    Math::float4 Params; // x=Seed, z=FrameIdx
 };
 
 // =========================================================
-// HELPERS (Scene Graph)
+// SCENE SYSTEM
 // =========================================================
-
 class Object {
 public:
     Object(int id) : m_id(id) {}
@@ -130,302 +127,346 @@ public:
         for (int i = 0; i < buffer.ObjectCount; i++) buffer.Objects[i] = m_primitives[i]->GetGPUData();
         return buffer;
     }
-    void Clear() { m_primitives.clear(); }
 private:
     std::vector<std::unique_ptr<GeometryPrimitive>> m_primitives;
 };
 
 // =========================================================
-// MAIN LOGIC
+// APPLICATION CLASS
 // =========================================================
+class PathTracerApp {
+public:
+    PathTracerApp(int width, int height) :
+        m_windowW(width), m_windowH(height),
+        m_renderW(width* SSAA_FACTOR), m_renderH(height* SSAA_FACTOR) {}
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
-    int WindowW = 1280;
-    int WindowH = 720;
-    int RenderW = WindowW * SSAA_FACTOR;
-    int RenderH = WindowH * SSAA_FACTOR;
+    ~PathTracerApp() {
+        ImGui_ImplDX11_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
+        m_renderer.Destroy();
+    }
 
-    // ... (Создание окна и Rendeructor init остаются без изменений) ...
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW,
-        [](HWND h, UINT m, WPARAM w, LPARAM l) -> LRESULT {
-            if (ImGui_ImplWin32_WndProcHandler(h, m, w, l)) return true;
-            if (m == WM_DESTROY) PostQuitMessage(0); return DefWindowProc(h, m, w, l); },
-        0, 0, hInstance, nullptr, LoadCursor(nullptr, IDC_ARROW), nullptr, nullptr, "StochasticPT - Moving Avg", nullptr };
-    RegisterClassEx(&wc);
-    HWND hwnd = CreateWindowEx(0, "StochasticPT - Moving Avg", "Initializing...", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 100, 100, WindowW, WindowH, nullptr, nullptr, hInstance, nullptr);
+    bool Initialize(HINSTANCE hInstance) {
+        if (!InitWindow(hInstance)) return false;
+        if (!InitRenderer()) return false;
+        if (!InitImGui()) return false;
 
-    Rendeructor renderer;
-    BackendConfig config;
-    config.Width = WindowW; config.Height = WindowH; config.WindowHandle = hwnd; config.API = RenderAPI::DirectX11;
-    if (!renderer.Create(config)) return 0;
+        SetupResources();
+        SetupScene();
 
-    // ==========================================
-    // IMGUI INIT
-    // ==========================================
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark();
+        return true;
+    }
 
-    ImGui_ImplWin32_Init(hwnd);
+    void Run() {
+        MSG msg = {};
+        while (msg.message != WM_QUIT) {
+            if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+            else {
+                UpdateAndRender();
+            }
+        }
+    }
 
-    // Получаем сырые указатели DirectX11 из Rendeructor
-    // Важно: кастим void* в реальные типы D3D11
-    ID3D11Device* d3dDevice = (ID3D11Device*)renderer.GetDevice();
-    ID3D11DeviceContext* d3dContext = (ID3D11DeviceContext*)renderer.GetContext();
-    ImGui_ImplDX11_Init(d3dDevice, d3dContext);
+private:
+    // --- Window & Engine ---
+    HWND m_hwnd = nullptr;
+    Rendeructor m_renderer;
+    int m_windowW, m_windowH;
+    int m_renderW, m_renderH;
 
     // --- Resources ---
-    // Нам нужно ДВА HDR буфера для Ping-Pong аккумуляции
-    Texture rtHistory[2];
-    rtHistory[0].Create(RenderW, RenderH, TextureFormat::RGBA32F);
-    rtHistory[1].Create(RenderW, RenderH, TextureFormat::RGBA32F);
+    // [FIX 1] Сэмплер теперь член класса (не удаляется из памяти после Init)
+    Sampler m_linearSampler;
+    Texture m_rtHistory[2];
+    ShaderPass m_ptPass, m_displayPass, m_highlightPass;
+    PipelineState m_stateTileRender, m_stateFullScreen, m_stateUI;
 
-    Sampler linearSampler; linearSampler.Create("Linear");
+    // --- Scene & Data ---
+    Scene m_scene;
+    SceneObjectsBuffer m_gpuBuffer;
 
-    // --- Pipeline States ---
-    PipelineState stateTileRender;
-    stateTileRender.Cull = CullMode::None;
-    stateTileRender.DepthWrite = false;
-    stateTileRender.DepthFunc = CompareFunc::Always;
-    stateTileRender.ScissorTest = true;
-    stateTileRender.Blend = BlendMode::Opaque;
+    // --- Logic State ---
+    Math::float3 m_camPos = { 9.0f, 15.0f, -6.0f };
+    Math::float3 m_camTarget = { 9.0f, 0.0f, 9.0f };
 
-    PipelineState stateFullScreen = stateTileRender;
-    stateFullScreen.ScissorTest = false;
+    int m_currentTileIndex = 0;
+    int m_frameIndex = 0;
 
-    PipelineState stateUI;
-    stateUI.Cull = CullMode::None;
-    stateUI.DepthWrite = false;
-    stateUI.DepthFunc = CompareFunc::Always;
-    stateUI.ScissorTest = false;
-    stateUI.Blend = BlendMode::AlphaBlend;
+    // [FIX 2] Разделяем логику буферов:
+    // activeBuffer: индекс для swap'а в процессе расчета
+    // displayBuffer: индекс готового кадра для вывода на экран
+    int m_activeBuffer = 0;
+    int m_displayBuffer = 0;
 
-    // --- Shaders ---
-    ShaderPass ptPass;
-    ptPass.VertexShaderPath = "PathTracer.hlsl";
-    ptPass.VertexShaderEntryPoint = "VS_Quad";
-    ptPass.PixelShaderPath = "PathTracer.hlsl";
-    ptPass.PixelShaderEntryPoint = "PS_PathTrace";
-    renderer.CompilePass(ptPass);
+    float m_globalSeedTime = 1.0f;
+    float m_currentExposure = 1.0f;
 
-    ShaderPass displayPass;
-    displayPass.VertexShaderPath = "FinalOutput.hlsl";
-    displayPass.VertexShaderEntryPoint = "VS_Quad";
-    displayPass.PixelShaderPath = "FinalOutput.hlsl";
-    displayPass.PixelShaderEntryPoint = "PS_ToneMap";
-    displayPass.AddSampler("Smp", linearSampler);
-    renderer.CompilePass(displayPass);
+private:
+    bool InitWindow(HINSTANCE hInstance) {
+        WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW,
+            [](HWND h, UINT m, WPARAM w, LPARAM l) -> LRESULT {
+                if (ImGui_ImplWin32_WndProcHandler(h, m, w, l)) return true;
+                if (m == WM_DESTROY) PostQuitMessage(0); return DefWindowProc(h, m, w, l); },
+            0, 0, hInstance, nullptr, LoadCursor(nullptr, IDC_ARROW), nullptr, nullptr, "StochasticPT" };
 
-    ShaderPass highlightPass;
-    highlightPass.VertexShaderPath = "highlight.hlsl";
-    highlightPass.VertexShaderEntryPoint = "VS_Main";
-    highlightPass.PixelShaderPath = "highlight.hlsl";
-    highlightPass.PixelShaderEntryPoint = "PS_Main";
-    renderer.CompilePass(highlightPass);
+        if (!RegisterClassEx(&wc)) return false;
 
-    // --- Создание сцены (PBR Chart) ---
-    Scene myScene;
-    // Пол
-    auto floor = myScene.CreatePrimitive(PrimitiveType::Plane);
-    floor->SetPosition(0, 0, 0); floor->SetColor(0.05f, 0.05f, 0.05f); floor->SetRoughness(1.0f);
-
-    // Свет (большая панель сверху)
-    auto light = myScene.CreatePrimitive(PrimitiveType::Box);
-    light->SetPosition(8.0f, 10.0f, 8.0f); light->SetScale(3.0f, 0.1f, 3.0f);
-    light->SetColor(1.0f, 0.9f, 0.8f); light->SetEmission(5.0f);
-
-    // Сферы 8x8
-    int rows = 8, cols = 8;
-    float spacing = 2.5f;
-    for (int z = 0; z < rows; ++z) {
-        for (int x = 0; x < cols; ++x) {
-            auto s = myScene.CreatePrimitive(PrimitiveType::Sphere);
-            s->SetPosition(x * spacing, 1.0f, z * spacing);
-            s->SetScale(0.9f);
-
-            // X: Roughness (0..1)
-            float r = (float)x / (float)(cols - 1);
-            s->SetRoughness(std::max(r, 0.04f));
-
-            // Z: Metalness (0..1)
-            float m = (float)z / (float)(rows - 1);
-            s->SetMetalness(m);
-
-            s->SetColor(0.9f, 0.1f, 0.1f); // Красные шарики
-        }
+        m_hwnd = CreateWindowEx(0, "StochasticPT", "DirectX11 PathTracer",
+            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+            100, 100, m_windowW, m_windowH, nullptr, nullptr, hInstance, nullptr);
+        return (m_hwnd != nullptr);
     }
-    SceneObjectsBuffer gpuBuffer = myScene.GenerateGPUBuffer();
 
-    // --- Камера и данные сцены ---
-    PTSceneData sceneData;
-    sceneData.Resolution = float4((float)RenderW, (float)RenderH, 0, 0);
+    bool InitRenderer() {
+        BackendConfig config;
+        config.Width = m_windowW; config.Height = m_windowH;
+        config.WindowHandle = m_hwnd; config.API = RenderAPI::DirectX11;
+        return m_renderer.Create(config);
+    }
 
-    Math::float3 camPos = { 9.0f, 15.0f, -6.0f }; // Вид сверху-сбоку
-    Math::float3 camTarget = { 9.0f, 0.0f, 9.0f }; // Смотрим в центр чарта
+    bool InitImGui() {
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui::StyleColorsDark();
+        ImGui_ImplWin32_Init(m_hwnd);
+        auto d3dDevice = (ID3D11Device*)m_renderer.GetDevice();
+        auto d3dContext = (ID3D11DeviceContext*)m_renderer.GetContext();
+        return ImGui_ImplDX11_Init(d3dDevice, d3dContext);
+    }
 
-    int tilesX = (RenderW + TILE_SIZE - 1) / TILE_SIZE;
-    int tilesY = (RenderH + TILE_SIZE - 1) / TILE_SIZE;
-    int totalTiles = tilesX * tilesY;
+    void SetupResources() {
+        // Init Resources
+        m_rtHistory[0].Create(m_renderW, m_renderH, TextureFormat::RGBA32F);
+        m_rtHistory[1].Create(m_renderW, m_renderH, TextureFormat::RGBA32F);
+        // Заливаем черным для старта
+        m_renderer.Clear(m_rtHistory[0], 0, 0, 0, 0);
+        m_renderer.Clear(m_rtHistory[1], 0, 0, 0, 0);
 
-    // === ДАННЫЕ ДЛЯ Moving Average ===
-    int currentTileIndex = 0;
-    float globalSeedTime = 1.0f;
-    int frameIndex = 0;   // Сколько кадров уже усреднено
-    int activeBuffer = 0; // 0 или 1, куда пишем сейчас
-    float currentExposure = 1.0f;
+        m_linearSampler.Create("Linear"); // Валидный указатель теперь живет вечно
 
-    // Чистим оба буфера на старте
-    renderer.Clear(rtHistory[0], 0, 0, 0, 0);
-    renderer.Clear(rtHistory[1], 0, 0, 0, 0);
+        // States
+        m_stateTileRender.Cull = CullMode::None;
+        m_stateTileRender.DepthWrite = false;
+        m_stateTileRender.DepthFunc = CompareFunc::Always; // Для фуллскрина Always надежнее
+        m_stateTileRender.ScissorTest = true;
+        m_stateTileRender.Blend = BlendMode::Opaque;
 
-    MSG msg = {};
-    while (msg.message != WM_QUIT) {
-        if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessage(&msg); }
-        else {
-            // =========================
-            // START IMGUI FRAME
-            // =========================
-            ImGui_ImplDX11_NewFrame();
-            ImGui_ImplWin32_NewFrame();
-            ImGui::NewFrame();
+        m_stateFullScreen = m_stateTileRender;
+        m_stateFullScreen.ScissorTest = false;
 
-            // Создаем окно настроек
-            ImGui::Begin("Renderer Control");
-            ImGui::Text("Tiles: %dx%d (%d px)", tilesX, tilesY, TILE_SIZE);
-            ImGui::Separator();
+        m_stateUI = m_stateTileRender;
+        m_stateUI.ScissorTest = false;
+        m_stateUI.Blend = BlendMode::AlphaBlend;
 
-            // Настройки, НЕ требующие перезапуска симуляции (PostProcess)
-            ImGui::SliderFloat("Exposure", &currentExposure, 0.0f, 10.0f);
+        // Shaders
+        m_ptPass.VertexShaderPath = "PathTracer.hlsl"; m_ptPass.VertexShaderEntryPoint = "VS_Quad";
+        m_ptPass.PixelShaderPath = "PathTracer.hlsl";  m_ptPass.PixelShaderEntryPoint = "PS_PathTrace";
+        m_renderer.CompilePass(m_ptPass);
 
-            ImGui::Separator();
-            ImGui::Text("Simulation Parameters (Resets Render)");
+        m_displayPass.VertexShaderPath = "FinalOutput.hlsl"; m_displayPass.VertexShaderEntryPoint = "VS_Quad";
+        m_displayPass.PixelShaderPath = "FinalOutput.hlsl";  m_displayPass.PixelShaderEntryPoint = "PS_ToneMap";
+        // Важно: здесь теперь передается ссылка на живой член класса
+        m_displayPass.AddSampler("Smp", m_linearSampler);
+        m_renderer.CompilePass(m_displayPass);
 
-            // Настройки, требующие перезапуска (изменяют сцену/камеру)
-            bool simChanged = false;
+        m_highlightPass.VertexShaderPath = "highlight.hlsl"; m_highlightPass.VertexShaderEntryPoint = "VS_Main";
+        m_highlightPass.PixelShaderPath = "highlight.hlsl";  m_highlightPass.PixelShaderEntryPoint = "PS_Main";
+        m_renderer.CompilePass(m_highlightPass);
+    }
 
-            if (ImGui::Button("Reset Render")) simChanged = true;
+    void SetupScene() {
+        // Создаем сцену 1 раз (если надо пересоздавать - нужно делать Clear у Scene)
+        auto floor = m_scene.CreatePrimitive(PrimitiveType::Plane);
+        floor->SetPosition(0, 0, 0); floor->SetColor(0.05f, 0.05f, 0.05f); floor->SetRoughness(1.0f);
 
-            ImGui::End();
+        auto light = m_scene.CreatePrimitive(PrimitiveType::Box);
+        light->SetPosition(8.0f, 10.0f, 8.0f); light->SetScale(3.0f, 0.1f, 3.0f);
+        light->SetColor(1.0f, 0.9f, 0.8f); light->SetEmission(2.0f);
 
-            // [Пробел] -> Полный сброс аккумуляции
-            if (GetAsyncKeyState(VK_SPACE) & 0x8000 || simChanged) {
-                currentTileIndex = 0;
-                frameIndex = 0;
-                globalSeedTime = 1.0f;
+        int rows = 8, cols = 8;
+        float spacing = 2.5f;
+        for (int z = 0; z < rows; ++z) {
+            for (int x = 0; x < cols; ++x) {
+                auto s = m_scene.CreatePrimitive(PrimitiveType::Sphere);
+                s->SetPosition(x * spacing, 1.0f, z * spacing);
+                s->SetScale(0.9f);
+                s->SetRoughness(std::max((float)x / (cols - 1), 0.04f));
+                s->SetMetalness((float)z / (rows - 1));
+                s->SetColor(0.9f, 0.1f, 0.1f);
             }
-            if (GetAsyncKeyState(VK_ADD) & 0x8000) currentExposure += 0.01f; // Numpad +
-            if (GetAsyncKeyState(VK_SUBTRACT) & 0x8000) currentExposure -= 0.01f; // Numpad -
+        }
+        m_gpuBuffer = m_scene.GenerateGPUBuffer();
+    }
 
-            if (currentExposure < 0.0f) currentExposure = 0.0f;
+    // [FIX 3] Хак для сброса кэша состояний Backend'а после ImGui
+    void ForceStateFlush() {
+        PipelineState dummyState;
+        dummyState.Blend = BlendMode::Additive; // Ставим что-то отличное от Opaque
+        dummyState.Cull = CullMode::Front;
+        m_renderer.SetPipelineState(dummyState);
+    }
 
-            // Рендерим пачку тайлов
-            int tilesBatch = 8;
-            renderer.SetPipelineState(stateTileRender);
+    void UpdateControls(bool& simChanged) {
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
 
-            int readIdx = (activeBuffer == 0) ? 1 : 0; // Откуда читаем (предыдущий кадр)
-            int writeIdx = activeBuffer;               // Куда пишем (текущий кадр)
+        ImGui::Begin("Renderer Control");
+        ImGui::Text("Passes: %d", m_frameIndex);
+        int tilesX = (m_renderW + TILE_SIZE - 1) / TILE_SIZE;
+        ImGui::Text("Tile: %d / %d", m_currentTileIndex, tilesX * ((m_renderH + TILE_SIZE - 1) / TILE_SIZE));
+        ImGui::SliderFloat("Exposure", &m_currentExposure, 0.0f, 10.0f);
+        if (ImGui::Button("Reset Render")) simChanged = true;
+        ImGui::End();
 
-            for (int b = 0; b < tilesBatch; b++) {
-                if (currentTileIndex >= totalTiles) {
-                    // Конец полного прохода по экрану
-                    currentTileIndex = 0;
+        if (GetAsyncKeyState(VK_SPACE) & 0x8000) simChanged = true;
+    }
 
-                    // Меняем буферы местами
-                    activeBuffer = (activeBuffer == 0) ? 1 : 0;
-                    readIdx = (activeBuffer == 0) ? 1 : 0;
-                    writeIdx = activeBuffer;
+    void UpdateAndRender() {
+        bool simChanged = false;
+        UpdateControls(simChanged);
+        if (simChanged) ResetSimulation();
 
-                    frameIndex++;
-                    break;
-                }
+        // 1. Ray Tracing (Offscreen)
+        // ВАЖНО: Принудительно сбрасываем кэш стейтов, т.к. ImGui "загрязнил" контекст DX11
+        ForceStateFlush();
+        RenderPTBatches(8); // Рендерим пачку тайлов (чем больше число, тем быстрее обновляется кадр)
 
-                int tx = currentTileIndex % tilesX;
-                int ty = currentTileIndex / tilesX;
+        // 2. Clear Screen & Tone Map
+        // Принудительно очищаем BackBuffer цветом (дебаг, чтоб видеть если ToneMap упал)
+        m_renderer.RenderPassToScreen(); // Bind Backbuffer
+        m_renderer.Clear(0.1f, 0.1f, 0.15f, 1.0f);
 
-                // (Код расчета матрицы камеры как у вас...)
-                Math::float3 fwd = (camTarget - camPos).normalize();
-                Math::float3 rgt = Math::float3(0, 1, 0).cross(fwd).normalize();
-                Math::float3 up = fwd.cross(rgt).normalize();
-                float ar = (float)RenderW / RenderH;
-                float thf = tan(3.14159f / 3.0f * 0.5f);
+        RenderDisplayPass(); // ToneMap поверх очищенного экрана
 
-                sceneData.CameraPos = float4(camPos.x, camPos.y, camPos.z, 1.0f);
-                sceneData.CameraDir = float4(fwd.x, fwd.y, fwd.z, 0.0f);
-                sceneData.CameraRight = float4(rgt.x * thf * ar, rgt.y * thf * ar, rgt.z * thf * ar, 0.0f);
-                sceneData.CameraUp = float4(up.x * thf, up.y * thf, up.z * thf, 0.0f);
+        // 3. UI Overlays
+        RenderOverlayPass();
 
-                // PARAMS:
-                // x = Random Seed
-                // z = Индекс текущего кадра аккумуляции (для Lerp веса)
-                globalSeedTime += 1.61803f;
-                sceneData.Params.x = globalSeedTime;
-                sceneData.Params.z = (float)frameIndex;
+        // 4. Show it
+        m_renderer.Present();
+    }
 
-                // --- BINDING ---
+    void ResetSimulation() {
+        m_currentTileIndex = 0;
+        m_frameIndex = 0;
+        m_globalSeedTime = 1.0f;
+        m_activeBuffer = 0;
+        m_displayBuffer = 0;
 
-                // 1. Ставим RenderTarget для ЗАПИСИ
-                renderer.SetRenderTarget(rtHistory[writeIdx]);
+        // Очищаем историю, чтобы убрать "призраков"
+        m_renderer.Clear(m_rtHistory[0], 0, 0, 0, 0);
+        m_renderer.Clear(m_rtHistory[1], 0, 0, 0, 0);
+    }
 
-                // 2. Биндим текстуру для ЧТЕНИЯ (История)
-                ptPass.AddTexture("TexHistory", rtHistory[readIdx]);
-                renderer.SetShaderPass(ptPass);
+    void RenderPTBatches(int batchCount) {
+        m_renderer.SetPipelineState(m_stateTileRender);
 
-                renderer.SetCustomConstant("SceneBuffer", sceneData);
-                renderer.SetCustomConstant("ObjectBuffer", gpuBuffer);
+        int tilesX = (m_renderW + TILE_SIZE - 1) / TILE_SIZE;
+        int tilesY = (m_renderH + TILE_SIZE - 1) / TILE_SIZE;
+        int totalTiles = tilesX * tilesY;
 
-                renderer.SetScissor(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                renderer.DrawFullScreenQuad();
+        // Double Buffering: читаем пред. кадр, пишем в текущий
+        int readIdx = (m_activeBuffer == 0) ? 1 : 0;
+        int writeIdx = m_activeBuffer;
 
-                currentTileIndex++;
+        PTSceneData camData = CalculateCameraData();
+
+        for (int b = 0; b < batchCount; b++) {
+            // Если тайлы закончились — завершаем "sub-frame"
+            if (m_currentTileIndex >= totalTiles) {
+                m_currentTileIndex = 0;
+
+                // [FIX 2 - Update] Теперь этот буфер готов для показа
+                m_displayBuffer = m_activeBuffer;
+
+                // Свапаем для следующего кадра
+                m_activeBuffer = (m_activeBuffer == 0) ? 1 : 0;
+
+                m_frameIndex++;
+                break; // Выходим, чтобы дать ToneMap показать результат
             }
 
-            // --- Present to Screen ---
-            // Отрисовываем буфер, в который МЫ ПИСАЛИ (rtHistory[writeIdx])
-            // Важно сбросить рендер таргет на экран
-            renderer.RenderPassToScreen();
+            int tx = m_currentTileIndex % tilesX;
+            int ty = m_currentTileIndex / tilesX;
 
-            renderer.SetPipelineState(stateFullScreen);
+            m_globalSeedTime += 1.61803f;
+            camData.Params.x = m_globalSeedTime;
+            camData.Params.z = (float)m_frameIndex;
 
-            // Динамически обновляем текстуру для отображения
-            displayPass.AddTexture("TexHDR", rtHistory[writeIdx]);
+            // Bind Resources
+            m_renderer.SetRenderTarget(m_rtHistory[writeIdx]);
 
-            PostProcessData ppData;
-            ppData.Exposure = currentExposure;
-            renderer.SetCustomConstant("PostProcessParams", ppData);
+            // ВАЖНО: Текстуру нужно биндить явно в PT Pass
+            m_ptPass.AddTexture("TexHistory", m_rtHistory[readIdx]);
+            m_renderer.SetShaderPass(m_ptPass);
 
-            renderer.SetShaderPass(displayPass);
+            m_renderer.SetCustomConstant("SceneBuffer", camData);
+            m_renderer.SetCustomConstant("ObjectBuffer", m_gpuBuffer);
 
-            renderer.DrawFullScreenQuad();
+            m_renderer.SetScissor(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            m_renderer.DrawFullScreenQuad();
 
-
-            renderer.SetPipelineState(stateUI); // Blend Alpha, Depth Off
-
-            HighlightCB hlParams;
-            hlParams.TileIndex = (float)currentTileIndex;
-            hlParams.TilesStride = (float)tilesX;
-            hlParams.TileSize = (float)TILE_SIZE;
-
-            renderer.SetCustomConstant("HighlightParams", hlParams);
-
-            renderer.SetShaderPass(highlightPass);
-            renderer.DrawFullScreenQuad();
-
-            ImGui::Render();
-            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-            renderer.Present();
-
-            char title[128];
-            sprintf_s(title, "PT Moving Avg | Pass: %d | Tile: %d/%d", frameIndex, currentTileIndex, totalTiles);
-            SetWindowText(hwnd, title);
+            m_currentTileIndex++;
         }
     }
 
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
+    void RenderDisplayPass() {
+        m_renderer.SetPipelineState(m_stateFullScreen); // Depth Off, Scissor Off
 
-    renderer.Destroy();
+        // [FIX 2] Используем ЯВНО индекс готового буфера
+        m_displayPass.AddTexture("TexHDR", m_rtHistory[m_displayBuffer]);
+
+        PostProcessData ppData = { m_currentExposure };
+        m_renderer.SetCustomConstant("PostProcessParams", ppData);
+
+        m_renderer.SetShaderPass(m_displayPass);
+        m_renderer.DrawFullScreenQuad();
+    }
+
+    void RenderOverlayPass() {
+        m_renderer.SetPipelineState(m_stateUI);
+        int tilesX = (m_renderW + TILE_SIZE - 1) / TILE_SIZE;
+
+        // Показываем текущий тайл (он бегает по экрану)
+        HighlightCB hlParams = { (float)m_currentTileIndex, (float)tilesX, (float)TILE_SIZE, 0 };
+
+        m_renderer.SetCustomConstant("HighlightParams", hlParams);
+        m_renderer.SetShaderPass(m_highlightPass);
+        m_renderer.DrawFullScreenQuad();
+
+        // ImGui в самом конце
+        ImGui::Render();
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    }
+
+    PTSceneData CalculateCameraData() {
+        Math::float3 fwd = (m_camTarget - m_camPos).normalize();
+        Math::float3 rgt = Math::float3(0, 1, 0).cross(fwd).normalize();
+        Math::float3 up = fwd.cross(rgt).normalize();
+        float ar = (float)m_renderW / m_renderH;
+        float thf = tan(3.14159f / 3.0f * 0.5f);
+
+        PTSceneData data;
+        data.Resolution = float4((float)m_renderW, (float)m_renderH, 0, 0);
+        data.CameraPos = float4(m_camPos.x, m_camPos.y, m_camPos.z, 1.0f);
+        data.CameraDir = float4(fwd.x, fwd.y, fwd.z, 0.0f);
+        data.CameraRight = float4(rgt.x * thf * ar, rgt.y * thf * ar, rgt.z * thf * ar, 0.0f);
+        data.CameraUp = float4(up.x * thf, up.y * thf, up.z * thf, 0.0f);
+        return data;
+    }
+};
+
+// =========================================================
+// MAIN - остается минимальным
+// =========================================================
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    PathTracerApp app(1280, 720);
+    if (app.Initialize(hInstance)) {
+        app.Run();
+    }
     return 0;
 }
