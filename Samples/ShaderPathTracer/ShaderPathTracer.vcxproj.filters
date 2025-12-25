@@ -2,9 +2,68 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="ShaderPathTracer.cpp" />
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_dx11.cpp">
+      <Filter>ImGui\Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_win32.cpp">
+      <Filter>ImGui\Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui.cpp">
+      <Filter>ImGui\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_demo.cpp">
+      <Filter>ImGui\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_draw.cpp">
+      <Filter>ImGui\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_tables.cpp">
+      <Filter>ImGui\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_widgets.cpp">
+      <Filter>ImGui\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="PathTracer.hlsl" />
     <FxCompile Include="FinalOutput.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="highlight.hlsl" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_dx11.h">
+      <Filter>ImGui\Backends</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_win32.h">
+      <Filter>ImGui\Backends</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imconfig.h">
+      <Filter>ImGui\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imgui.h">
+      <Filter>ImGui\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imgui_internal.h">
+      <Filter>ImGui\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_rectpack.h">
+      <Filter>ImGui\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_textedit.h">
+      <Filter>ImGui\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_truetype.h">
+      <Filter>ImGui\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ImGui">
+      <UniqueIdentifier>{507182a9-c905-4641-8521-43e925c0eb0c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImGui\Core">
+      <UniqueIdentifier>{af6b8ee3-cd2a-4266-ad1e-0593317e75ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImGui\Backends">
+      <UniqueIdentifier>{570dc6b8-e507-43c2-b86c-2ec1a53e5485}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

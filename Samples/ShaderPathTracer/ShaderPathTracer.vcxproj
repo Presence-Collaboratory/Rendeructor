@@ -19,6 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui.cpp" />
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_widgets.cpp" />
     <ClCompile Include="ShaderPathTracer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -34,6 +41,22 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_dx11.h" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imconfig.h" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imgui.h" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imgui_internal.h" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_textedit.h" />
+    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_truetype.h" />
+    <ClInclude Include="highlight.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

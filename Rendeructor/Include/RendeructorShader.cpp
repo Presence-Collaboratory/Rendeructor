@@ -3,15 +3,24 @@
 #include "BackendDX11.h"
 
 void ShaderPass::AddTexture(const std::string& name, const Texture& texture) {
-    m_textures[name] = &texture;
+    auto it = m_textures.find(name);
+    if (it == m_textures.end() || it->second != &texture) {
+        m_textures[name] = &texture;
+    }
 }
 
 void ShaderPass::AddTexture(const std::string& name, const Texture3D& texture) {
-    m_textures3D[name] = &texture;
+    auto it = m_textures3D.find(name);
+    if (it == m_textures3D.end() || it->second != &texture) {
+        m_textures3D[name] = &texture;
+    }
 }
 
 void ShaderPass::AddTexture(const std::string& name, const TextureCube& texture) {
-    m_texturesCube[name] = &texture;
+    auto it = m_texturesCube.find(name);
+    if (it == m_texturesCube.end() || it->second != &texture) {
+        m_texturesCube[name] = &texture;
+    }
 }
 
 void ShaderPass::AddSampler(const std::string& name, const Sampler& sampler) {

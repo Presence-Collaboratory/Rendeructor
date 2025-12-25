@@ -169,34 +169,60 @@ void BackendDX11::InitRenderStates() {
     for (int i = 0; i < 3; i++) {
         rd.CullMode = cullTranslation[i];
 
-        // Вариант 0: Scissor ВЫКЛ
+        // Вариант 1: Scissor ВЫКЛЮЧЕН (для обычных мешей)
         rd.ScissorEnable = FALSE;
         HRESULT hr1 = m_device->CreateRasterizerState(&rd, m_rasterizerStates[i][0].GetAddressOf());
+        if (FAILED(hr1)) LogDebug("[BackendDX11] Error creating RS (NoScissor) mode %d", i);
 
-        // Вариант 1: Scissor ВКЛ
+        // Вариант 2: Scissor ВКЛЮЧЕН (для плиточного рендеринга)
         rd.ScissorEnable = TRUE;
         HRESULT hr2 = m_device->CreateRasterizerState(&rd, m_rasterizerStates[i][1].GetAddressOf());
-
-        if (FAILED(hr1) || FAILED(hr2)) {
-            LogDebug("[BackendDX11] Error creating Rasterizer State %d", i);
-        }
+        if (FAILED(hr2)) LogDebug("[BackendDX11] Error creating RS (Scissor) mode %d", i);
     }
 
-    // 1. Устанавливаем переменные кэша в то, что мы хотим видеть по умолчанию
-    m_cachedCullMode = CullMode::Back;     // По умолчанию Cull Back
-    m_cachedScissorEnabled = false;        // По умолчанию Scissor Off
-
-    // 2. Явно устанавливаем этот стейт в GPU (индекс 2 = Back, индекс 0 = ScissorOff)
+    // Устанавливаем дефолтный RS стейт
+    m_cachedCullMode = CullMode::Back;
+    m_cachedScissorEnabled = false;
     if (m_context) {
         m_context->RSSetState(m_rasterizerStates[(int)m_cachedCullMode][0].Get());
     }
 
-    // Инициализация состояний смешивания (Blend)
-    D3D11_BLEND_DESC bd = {};
-    bd.RenderTarget[0].BlendEnable = FALSE;
-    bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    m_device->CreateBlendState(&bd, m_blendStates[0].GetAddressOf()); // Opaque
+    // --- НАСТРОЙКА BLEND STATES (КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ДЛЯ MRT) ---
 
+    D3D11_BLEND_DESC bd = {};
+
+    // Включаем IndependentBlend, чтобы явно контролировать поведение разных RT (по желанию),
+    // или оставляем false, но ЯВНО прописываем WriteMask для всех слотов, чтобы избежать ошибок с инициализацией.
+    bd.IndependentBlendEnable = FALSE;
+    bd.AlphaToCoverageEnable = FALSE;
+
+    // ------------------------------------------
+    // 1. OPAQUE (BlendMode::Opaque)
+    // ------------------------------------------
+    // Проходим по всем 8 слотам Render Targets, чтобы разрешить запись во второй буфер (Маску)
+    for (int i = 0; i < 8; ++i) {
+        bd.RenderTarget[i].BlendEnable = FALSE;
+        bd.RenderTarget[i].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    }
+    m_device->CreateBlendState(&bd, m_blendStates[0].GetAddressOf());
+
+
+    // ------------------------------------------
+    // 2. ALPHA BLEND (BlendMode::AlphaBlend)
+    // ------------------------------------------
+    // Сброс и повторная настройка
+    bd = {};
+    bd.IndependentBlendEnable = FALSE; // Для простоты настройки применяем ко всем одинаковые параметры по возможности
+
+    // Сначала включаем запись для всех слотов (чтобы маска писалась)
+    for (int i = 0; i < 8; ++i) {
+        bd.RenderTarget[i].BlendEnable = FALSE;
+        bd.RenderTarget[i].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    }
+
+    // Переопределяем параметры смешивания. 
+    // В режиме IndependentBlend = FALSE эти параметры применятся ко всем включенным RT, 
+    // что допустимо, либо RT[1] просто будет перезаписываться, что нам и нужно для маски.
     bd.RenderTarget[0].BlendEnable = TRUE;
     bd.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
     bd.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
@@ -204,11 +230,40 @@ void BackendDX11::InitRenderStates() {
     bd.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
     bd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
     bd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    m_device->CreateBlendState(&bd, m_blendStates[1].GetAddressOf()); // Alpha
+    // Обязательно WriteMask, хотя мы уже сделали это в цикле выше
+    bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
+    m_device->CreateBlendState(&bd, m_blendStates[1].GetAddressOf());
+
+
+    // ------------------------------------------
+    // 3. ADDITIVE (BlendMode::Additive)
+    // ------------------------------------------
+    bd = {};
+    bd.IndependentBlendEnable = FALSE;
+
+    // Снова включаем запись для всех каналов MRT
+    for (int i = 0; i < 8; ++i) {
+        bd.RenderTarget[i].BlendEnable = FALSE;
+        bd.RenderTarget[i].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    }
+
+    // Настраиваем аддитивное смешивание (Color + Dest)
+    bd.RenderTarget[0].BlendEnable = TRUE;
+    bd.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+    bd.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+    bd.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    bd.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    bd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+    bd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    m_device->CreateBlendState(&bd, m_blendStates[2].GetAddressOf());
+
+    // Установка дефолтного Blend State (Opaque)
     m_cachedBlendMode = BlendMode::Opaque;
-    float factor[4] = { 0,0,0,0 };
-    m_context->OMSetBlendState(m_blendStates[0].Get(), factor, 0xFFFFFFFF);
+    float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    m_context->OMSetBlendState(m_blendStates[0].Get(), blendFactor, 0xFFFFFFFF);
 }
 
 void BackendDX11::SetPipelineState(const PipelineState& newState) {
@@ -349,6 +404,7 @@ void BackendDX11::Resize(int width, int height) {
 void BackendDX11::BeginFrame() {}
 
 void BackendDX11::EndFrame() {
+    m_context->Flush();
     if (m_swapChain) m_swapChain->Present(1, 0);
 }
 
@@ -385,6 +441,10 @@ void* BackendDX11::CreateTextureResource(int width, int height, int format, cons
     case TextureFormat::RGBA32F:
         desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
         bytesPerPixel = 16;
+        break;
+    case TextureFormat::R8:
+        desc.Format = DXGI_FORMAT_R8_UNORM;
+        bytesPerPixel = 1;
         break;
     default:
         desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -937,9 +997,17 @@ void BackendDX11::SetShaderPass(const ShaderPass& pass) {
 }
 
 void BackendDX11::UpdateConstantRaw(const std::string& name, const void* data, size_t size) {
-    std::vector<uint8_t> buffer(size);
-    memcpy(buffer.data(), data, size);
-    m_cpuConstantsStorage[name] = { buffer };
+    // Получаем ссылку на существующий элемент или создаем новый
+    auto& entry = m_cpuConstantsStorage[name];
+
+    // Если размер не совпадает, меняем его (это произойдет 1 раз при старте)
+    // std::vector умный: если capacity достаточно, resize не вызовет перевыделения
+    if (entry.Data.size() != size) {
+        entry.Data.resize(size);
+    }
+
+    // Просто копируем данные в уже существующую память
+    memcpy(entry.Data.data(), data, size);
 }
 
 void BackendDX11::UploadConstants(DX11ReflectionData& reflectionData, ShaderType SType) {
