@@ -313,6 +313,13 @@ void BackendDX11::SetPipelineState(const PipelineState& newState) {
     m_firstStateSet = false;
 }
 
+void BackendDX11::ResetPipelineStateCache() {
+    m_firstStateSet = true;
+    m_activeShader = nullptr;
+    m_context->VSSetShader(nullptr, nullptr, 0);
+    m_context->PSSetShader(nullptr, nullptr, 0);
+}
+
 void BackendDX11::SetScissorRect(int x, int y, int width, int height) {
     D3D11_RECT rects[1];
     rects[0].left = x;

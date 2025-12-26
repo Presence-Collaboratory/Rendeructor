@@ -68,6 +68,7 @@ public:
     void* GetContext() override { return m_context.Get(); }
 
     void SetPipelineState(const PipelineState& state) override;
+    void ResetPipelineStateCache() override;
     void SetScissorRect(int x, int y, int width, int height);
 
     void* CreateTextureResource(int width, int height, int format, const void* initialData) override;

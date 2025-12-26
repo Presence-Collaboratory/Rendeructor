@@ -2,25 +2,25 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="ShaderPathTracer.cpp" />
-    <ClCompile Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_dx11.cpp">
+    <ClCompile Include="..\..\Third-Party\Imgui\backends\imgui_impl_dx11.cpp">
       <Filter>ImGui\Backends</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_win32.cpp">
+    <ClCompile Include="..\..\Third-Party\Imgui\backends\imgui_impl_win32.cpp">
       <Filter>ImGui\Backends</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui.cpp">
+    <ClCompile Include="..\..\Third-Party\Imgui\imgui.cpp">
       <Filter>ImGui\Core</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_demo.cpp">
+    <ClCompile Include="..\..\Third-Party\Imgui\imgui_demo.cpp">
       <Filter>ImGui\Core</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_draw.cpp">
+    <ClCompile Include="..\..\Third-Party\Imgui\imgui_draw.cpp">
       <Filter>ImGui\Core</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_tables.cpp">
+    <ClCompile Include="..\..\Third-Party\Imgui\imgui_tables.cpp">
       <Filter>ImGui\Core</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Third-Party\Include\Imgui\imgui_widgets.cpp">
+    <ClCompile Include="..\..\Third-Party\Imgui\imgui_widgets.cpp">
       <Filter>ImGui\Core</Filter>
     </ClCompile>
   </ItemGroup>
@@ -30,28 +30,28 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="highlight.hlsl" />
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_dx11.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\backends\imgui_impl_dx11.h">
       <Filter>ImGui\Backends</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\backends\imgui_impl_win32.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\backends\imgui_impl_win32.h">
       <Filter>ImGui\Backends</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\imconfig.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\imconfig.h">
       <Filter>ImGui\Core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\imgui.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\imgui.h">
       <Filter>ImGui\Core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\imgui_internal.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\imgui_internal.h">
       <Filter>ImGui\Core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_rectpack.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\imstb_rectpack.h">
       <Filter>ImGui\Core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_textedit.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\imstb_textedit.h">
       <Filter>ImGui\Core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Third-Party\Include\Imgui\imstb_truetype.h">
+    <ClInclude Include="..\..\Third-Party\Imgui\imstb_truetype.h">
       <Filter>ImGui\Core</Filter>
     </ClInclude>
   </ItemGroup>

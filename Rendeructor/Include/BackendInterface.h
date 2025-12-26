@@ -17,6 +17,7 @@ public:
 
     // State Management
     virtual void SetPipelineState(const PipelineState& state) = 0;
+    virtual void ResetPipelineStateCache() = 0;
     virtual void SetScissorRect(int x, int y, int width, int height) = 0;
 
     // Resources

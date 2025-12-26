@@ -49,11 +49,15 @@ void Rendeructor::SetPipelineState(const PipelineState& state) {
     }
 }
 
+void Rendeructor::ResetPipelineStateCache() {
+    if (m_backend) {
+        m_backend->ResetPipelineStateCache();
+    }
+}
+
 void Rendeructor::SetCullMode(CullMode mode) {
     if (m_currentState.Cull != mode) {
         m_currentState.Cull = mode;
-        // —разу пушим изменени€. 
-        // ¬ будущем можно делать это лениво перед Draw call, но пока оставим сразу.
         if (m_backend) m_backend->SetPipelineState(m_currentState);
     }
 }

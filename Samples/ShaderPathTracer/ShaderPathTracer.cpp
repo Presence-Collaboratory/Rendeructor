@@ -443,12 +443,6 @@ private:
 
     // --- Main Logic ---
 
-    void ForceStateFlush() {
-        PipelineState dummyState;
-        dummyState.Blend = BlendMode::Additive;
-        m_renderer.SetPipelineState(dummyState);
-    }
-
     void UpdateAndRender() {
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
@@ -468,8 +462,6 @@ private:
         }
 
         // === ГРАФИЧЕСКИЙ ПАЙПЛАЙН ===
-
-        ForceStateFlush(); // Чистим стейты после ImGui прошлого кадра
 
         // 1. Ray Tracing Pass (Только если идет рендеринг и не пауза)
         if (m_state == AppState::Rendering && !m_isPaused) {

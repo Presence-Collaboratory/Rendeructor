@@ -95,7 +95,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
     <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x86\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -103,7 +103,7 @@
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
     <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x86\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -111,7 +111,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
     <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x64\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -119,7 +119,7 @@
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include\</IncludePath>
     <LibraryPath>$(DXSDK_DIR)Lib\$(LibrariesArchitecture)\;$(SolutionDir)\Rendeructor\lib\x64\;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\Include\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\Third-Party\;$(SolutionDir)\Rendeructor\Include\</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Samples\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)\build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
   </PropertyGroup>

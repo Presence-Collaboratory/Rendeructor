@@ -72,7 +72,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <ExternalIncludePath>$(SolutionDir)\Third-Party\;$(ExternalIncludePath)</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Rendeructor\bin\x86\</OutDir>
     <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include</IncludePath>
@@ -80,7 +80,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <ExternalIncludePath>$(SolutionDir)\Third-Party\;$(ExternalIncludePath)</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Rendeructor\bin\x86\</OutDir>
     <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include</IncludePath>
@@ -88,7 +88,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <ExternalIncludePath>$(SolutionDir)\Third-Party\;$(ExternalIncludePath)</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Rendeructor\bin\x64\</OutDir>
     <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include</IncludePath>
@@ -96,7 +96,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <ExternalIncludePath>$(SolutionDir)\Third-Party\Include\;$(ExternalIncludePath)</ExternalIncludePath>
+    <ExternalIncludePath>$(SolutionDir)\Third-Party\;$(ExternalIncludePath)</ExternalIncludePath>
     <OutDir>$(SolutionDir)\Rendeructor\bin\x64\</OutDir>
     <IntDir>$(SolutionDir)\Build\intermediate\$(Platform)\$(TargetName)\$(Configuration)\</IntDir>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include</IncludePath>

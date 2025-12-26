@@ -19,6 +19,7 @@ public:
 
     PipelineState GetPipelineState() const { return m_currentState; }
     void SetPipelineState(const PipelineState& state);
+    void ResetPipelineStateCache();
     void SetCullMode(CullMode mode);
     void SetBlendMode(BlendMode mode);
     void SetDepthState(CompareFunc func, bool writeEnabled);
